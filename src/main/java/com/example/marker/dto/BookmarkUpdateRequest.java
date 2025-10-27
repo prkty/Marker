@@ -1,6 +1,7 @@
 package com.example.marker.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.validator.constraints.URL;
@@ -11,6 +12,7 @@ import org.hibernate.validator.constraints.URL;
  */
 @Getter
 @Setter
+@AllArgsConstructor
 public class BookmarkUpdateRequest {
 
     @NotBlank(message = "제목은 필수입니다.")

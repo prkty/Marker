@@ -1,10 +1,7 @@
 package com.example.marker.domain;
 
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 /**
  * 북마크 정보를 담는 JPA 엔티티 클래스입니다.
@@ -13,6 +10,8 @@ import lombok.NoArgsConstructor;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
+@Builder
 public class Bookmark extends BaseTimeEntity {
 
     /**
@@ -38,19 +37,6 @@ public class Bookmark extends BaseTimeEntity {
      * 북마크에 대한 간단한 메모.
      */
     private String memo;
-
-    /**
-     * 빌더 패턴을 사용한 생성자입니다.
-     * @param title 북마크 제목
-     * @param url 북마크 URL
-     * @param memo 북마크 메모
-     */
-    @Builder
-    public Bookmark(String title, String url, String memo) {
-        this.title = title;
-        this.url = url;
-        this.memo = memo;
-    }
 
     /**
      * 북마크의 정보를 수정합니다.
