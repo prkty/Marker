@@ -43,9 +43,7 @@ public class BookmarkService {
         Bookmark bookmark = bookmarkRepository.findById(bookmarkId)
                 .orElseThrow(() -> new IllegalArgumentException("Bookmark not found with id: " + bookmarkId));
 
-        bookmark.setTitle(request.getTitle());
-        bookmark.setUrl(request.getUrl());
-        bookmark.setMemo(request.getMemo());
+        bookmark.update(request.getTitle(), request.getUrl(), request.getMemo());
 
         return BookmarkResponse.from(bookmark);
     }

@@ -12,10 +12,10 @@ public class BookmarkCreateRequest {
     private String memo;
 
     public Bookmark toEntity() {
-        Bookmark bookmark = new Bookmark();
-        bookmark.setTitle(this.title);
-        bookmark.setUrl(this.url);
-        bookmark.setMemo(this.memo);
-        return bookmark;
+        return Bookmark.builder()
+                .title(this.title)
+                .url(this.url)
+                .memo(this.memo)
+                .build();
     }
 }
