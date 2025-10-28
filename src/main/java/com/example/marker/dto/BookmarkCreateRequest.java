@@ -1,12 +1,14 @@
 package com.example.marker.dto;
 
 import com.example.marker.domain.Bookmark;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
-import io.swagger.v3.oas.annotations.media.Schema;
 import org.hibernate.validator.constraints.URL;
+
+import java.util.List;
 
 /**
  * 북마크 생성을 위한 데이터 전송 객체(DTO)입니다.
@@ -28,6 +30,9 @@ public class BookmarkCreateRequest {
 
     @Schema(description = "북마크 메모", example = "한국 게임 사이트")
     private String memo;
+
+    @Schema(description = "북마크에 추가할 태그 목록", example = "[\"검색엔진\", \"IT\"]")
+    private List<String> tags;
 
     /**
      * DTO 객체를 Bookmark 엔티티 객체로 변환합니다.

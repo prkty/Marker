@@ -1,9 +1,12 @@
 package com.example.marker.dto;
 
 import com.example.marker.domain.Bookmark;
+import com.example.marker.domain.Tag;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 북마크 정보 응답을 위한 데이터 전송 객체(DTO)입니다.
@@ -18,6 +21,7 @@ public class BookmarkResponse {
     private final String memo;
     private final LocalDateTime createdAt;
     private final LocalDateTime updatedAt;
+    private final List<String> tags;
 
     /**
      * Bookmark 엔티티를 인자로 받아 DTO 객체를 생성하는 private 생성자입니다.
@@ -31,6 +35,9 @@ public class BookmarkResponse {
         this.memo = bookmark.getMemo();
         this.createdAt = bookmark.getCreatedAt();
         this.updatedAt = bookmark.getUpdatedAt();
+        this.tags = bookmark.getBookmarkTags().stream()
+                .map(bookmarkTag -> bookmarkTag.getTag().getName())
+                .collect(Collectors.toList());
     }
 
     /**

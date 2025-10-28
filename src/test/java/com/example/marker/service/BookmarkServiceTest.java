@@ -4,6 +4,7 @@ import com.example.marker.domain.Bookmark;
 import com.example.marker.dto.BookmarkCreateRequest;
 import com.example.marker.dto.BookmarkResponse;
 import com.example.marker.dto.BookmarkUpdateRequest;
+import com.example.marker.domain.Tag;
 import com.example.marker.repository.BookmarkRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.example.marker.repository.TagRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -44,12 +46,15 @@ class BookmarkServiceTest {
     @Mock
     private BookmarkRepository bookmarkRepository;
 
+    @Mock
+    private TagRepository tagRepository;
+
 
     @DisplayName("북마크 생성 - 성공")
     @Test
     void createBookmark_Success() {
         // given
-        final BookmarkCreateRequest request = new BookmarkCreateRequest("Google", "https://www.google.com", "Search Engine");
+        final BookmarkCreateRequest request = new BookmarkCreateRequest("Google", "https://www.google.com", "Search Engine", List.of("검색", "IT"));
         final Bookmark bookmark = Bookmark.builder()
                 .id(1L)
                 .title(request.getTitle())
@@ -57,21 +62,26 @@ class BookmarkServiceTest {
                 .memo(request.getMemo())
                 .build();
 
+        // 태그 관련 Mocking
+        when(tagRepository.findByName("검색")).thenReturn(Optional.empty());
+        when(tagRepository.findByName("IT")).thenReturn(Optional.of(Tag.builder().id(1L).name("IT").build()));
+        when(tagRepository.save(any(Tag.class))).thenReturn(Tag.builder().name("검색").build());
         // repository.save()가 호출될 때의 가짜 동작 정의
-        when(bookmarkRepository.save(any(Bookmark.class))).thenReturn(bookmark);
+        when(bookmarkRepository.save(any(Bookmark.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
         final BookmarkResponse response = bookmarkService.createBookmark(request);
 
         // then
         // 반환된 응답 값이 예상과 일치하는지 검증
-        assertThat(response.getId()).isEqualTo(1L);
         assertThat(response.getTitle()).isEqualTo("Google");
         assertThat(response.getUrl()).isEqualTo("https://www.google.com");
         assertThat(response.getMemo()).isEqualTo("Search Engine");
+        assertThat(response.getTags()).containsExactlyInAnyOrder("검색", "IT");
 
         // repository.save()가 한 번만 호출되었는지 검증
         verify(bookmarkRepository, times(1)).save(any(Bookmark.class));
+        verify(tagRepository, times(1)).save(any(Tag.class));
     }
 
     @DisplayName("북마크 전체 조회 - 성공")
@@ -142,12 +152,14 @@ class BookmarkServiceTest {
                 .memo("Original Memo")
                 .build();
 
-        final BookmarkUpdateRequest request = new BookmarkUpdateRequest("Updated Title", "https://updated.com", "Updated Memo");
+        final BookmarkUpdateRequest request = new BookmarkUpdateRequest("Updated Title", "https://updated.com", "Updated Memo", List.of("Updated Tag"));
 
         when(bookmarkRepository.findById(1L)).thenReturn(Optional.of(existingBookmark));
+        when(tagRepository.findByName("Updated Tag")).thenReturn(Optional.empty());
+        when(tagRepository.save(any(Tag.class))).thenReturn(Tag.builder().name("Updated Tag").build());
 
         // when
-        bookmarkService.updateBookmark(1L, request);
+        final BookmarkResponse response = bookmarkService.updateBookmark(1L, request);
 
         // then
         assertThat(existingBookmark.getTitle()).isEqualTo("Updated Title");
@@ -155,19 +167,43 @@ class BookmarkServiceTest {
         assertThat(existingBookmark.getMemo()).isEqualTo("Updated Memo");
 
         verify(bookmarkRepository, times(1)).findById(1L);
+        verify(tagRepository, times(1)).save(any(Tag.class));
+
+        assertThat(response.getTags()).containsExactly("Updated Tag");
     }
 
     @DisplayName("북마크 삭제 - 성공")
     @Test
     void deleteBookmark_Success() {
         // given
+        Long bookmarkId = 1L;
+        when(bookmarkRepository.existsById(bookmarkId)).thenReturn(true);
         // void 메서드는 doNothing()으로 Mocking
-        doNothing().when(bookmarkRepository).deleteById(1L);
+        doNothing().when(bookmarkRepository).deleteById(bookmarkId);
 
         // when
-        bookmarkService.deleteBookmark(1L);
+        bookmarkService.deleteBookmark(bookmarkId);
 
         // then
-        verify(bookmarkRepository, times(1)).deleteById(1L);
+        verify(bookmarkRepository, times(1)).existsById(bookmarkId);
+        verify(bookmarkRepository, times(1)).deleteById(bookmarkId);
+    }
+
+    @DisplayName("태그로 북마크 조회 - 성공")
+    @Test
+    void getBookmarksByTag_Success() {
+        // given
+        String tagName = "개발";
+        Bookmark bookmark1 = Bookmark.builder().id(1L).title("Spring Blog").url("...").build();
+        Bookmark bookmark2 = Bookmark.builder().id(2L).title("JPA Docs").url("...").build();
+        when(bookmarkRepository.findByTagName(tagName)).thenReturn(List.of(bookmark1, bookmark2));
+
+        // when
+        List<BookmarkResponse> responses = bookmarkService.getBookmarksByTag(tagName);
+
+        // then
+        assertThat(responses).hasSize(2);
+        assertThat(responses).extracting("title").containsExactly("Spring Blog", "JPA Docs");
+        verify(bookmarkRepository, times(1)).findByTagName(tagName);
     }
 }

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.marker.dto.BookmarkCreateRequest;
@@ -19,6 +20,7 @@ import com.example.marker.dto.BookmarkUpdateRequest;
 import com.example.marker.service.BookmarkService;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -45,11 +47,18 @@ public class BookmarkController {
         return ResponseEntity.created(URI.create("/bookmarks/" + response.getId())).body(response);
     }
 
-    @Operation(summary = "북마크 전체 조회", description = "시스템에 저장된 모든 북마크 목록을 조회합니다.", operationId = "bookmark-02")
+    @Operation(summary = "북마크 목록 조회", description = "북마크 목록을 조회합니다. 'tag' 쿼리 파라미터를 사용하여 특정 태그로 필터링할 수 있습니다.", operationId = "bookmark-02")
     @ApiResponse(responseCode = "200", description = "조회 성공")
     @GetMapping
-    public ResponseEntity<List<BookmarkResponse>> getAllBookmarks() {
-        List<BookmarkResponse> responses = bookmarkService.getAllBookmarks();
+    public ResponseEntity<List<BookmarkResponse>> getBookmarks(
+            @Parameter(description = "조회할 태그 이름 (선택)") @RequestParam(name = "tag", required = false) String tagName
+    ) {
+        List<BookmarkResponse> responses;
+        if (tagName != null && !tagName.isBlank()) {
+            responses = bookmarkService.getBookmarksByTag(tagName);
+        } else {
+            responses = bookmarkService.getAllBookmarks();
+        }
         return ResponseEntity.ok(responses);
     }
 

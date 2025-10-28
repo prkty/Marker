@@ -21,6 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.marker.domain.Bookmark;
 import com.example.marker.dto.BookmarkCreateRequest;
 import com.example.marker.dto.BookmarkUpdateRequest;
+import com.example.marker.domain.BookmarkTag;
+import com.example.marker.domain.Tag;
+import com.example.marker.repository.TagRepository;
 import com.example.marker.repository.BookmarkRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -45,11 +48,14 @@ class BookmarkControllerTest {
     @Autowired
     private BookmarkRepository bookmarkRepository;
 
+    @Autowired
+    private TagRepository tagRepository;
+
     @DisplayName("북마크 생성 API - 성공")
     @Test
     void createBookmark_Success() throws Exception {
         // given
-        final BookmarkCreateRequest request = new BookmarkCreateRequest("Test Title", "https://test.com", "Test Memo");
+        final BookmarkCreateRequest request = new BookmarkCreateRequest("Test Title", "https://test.com", "Test Memo", List.of("테스트", "Java"));
         final String jsonRequest = objectMapper.writeValueAsString(request);
 
         // when & then
@@ -59,7 +65,9 @@ class BookmarkControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").exists())
                 .andExpect(jsonPath("$.title").value("Test Title"))
-                .andExpect(jsonPath("$.url").value("https://test.com"));
+                .andExpect(jsonPath("$.url").value("https://test.com"))
+                .andExpect(jsonPath("$.tags[?(@ == '테스트')]").exists())
+                .andExpect(jsonPath("$.tags[?(@ == 'Java')]").exists());
     }
 
     @DisplayName("북마크 전체 조회 API - 성공")
@@ -78,6 +86,30 @@ class BookmarkControllerTest {
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].title").value("Google"))
                 .andExpect(jsonPath("$[1].title").value("Naver"));
+    }
+
+    @DisplayName("태그로 북마크 조회 API - 성공")
+    @Test
+    void getBookmarks_ByTag_Success() throws Exception {
+        // given
+        Tag devTag = tagRepository.save(Tag.builder().name("개발").build());
+        Tag newsTag = tagRepository.save(Tag.builder().name("뉴스").build());
+
+        Bookmark bookmark1 = Bookmark.builder().title("Spring Blog").url("...").build();
+        bookmark1.addBookmarkTag(BookmarkTag.builder().tag(devTag).build());
+        bookmarkRepository.save(bookmark1);
+
+        Bookmark bookmark2 = Bookmark.builder().title("Naver News").url("...").build();
+        bookmark2.addBookmarkTag(BookmarkTag.builder().tag(newsTag).build());
+        bookmarkRepository.save(bookmark2);
+
+        // when & then
+        mockMvc.perform(get("/bookmarks")
+                        .param("tag", "개발"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].title").value("Spring Blog"));
     }
 
     @DisplayName("북마크 상세 조회 API - 성공")
@@ -107,7 +139,7 @@ class BookmarkControllerTest {
                 .memo("Original Memo")
                 .build());
 
-        final BookmarkUpdateRequest request = new BookmarkUpdateRequest("Updated Title", "https://updated.com", "Updated Memo");
+        final BookmarkUpdateRequest request = new BookmarkUpdateRequest("Updated Title", "https://updated.com", "Updated Memo", List.of("수정된태그"));
         final String jsonRequest = objectMapper.writeValueAsString(request);
 
         // when
@@ -116,13 +148,15 @@ class BookmarkControllerTest {
                         .content(jsonRequest))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("Updated Title"))
-                .andExpect(jsonPath("$.memo").value("Updated Memo"));
+                .andExpect(jsonPath("$.memo").value("Updated Memo"))
+                .andExpect(jsonPath("$.tags[0]").value("수정된태그"));
 
         // then
         // 데이터베이스의 실제 데이터가 변경되었는지 확인
         final Bookmark updatedBookmark = bookmarkRepository.findById(savedBookmark.getId()).get();
         assertThat(updatedBookmark.getTitle()).isEqualTo("Updated Title");
         assertThat(updatedBookmark.getMemo()).isEqualTo("Updated Memo");
+        assertThat(updatedBookmark.getBookmarkTags().get(0).getTag().getName()).isEqualTo("수정된태그");
     }
 
     @DisplayName("북마크 삭제 API - 성공")
