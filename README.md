@@ -8,7 +8,7 @@
 
 ### 1.1 프로젝트 구조
 
-빌드```
+```
 src/main/java/com/example/marker
 ├── controller  # API의 엔드포인트를 정의하고, HTTP 요청/응답을 처리
 ├── domain      # 데이터베이스 테이블과 매핑되는 핵심 비즈니스 모델 (Entity)
