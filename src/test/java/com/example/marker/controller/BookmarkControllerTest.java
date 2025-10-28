@@ -80,12 +80,14 @@ class BookmarkControllerTest {
         ));
 
         // when & then
-        mockMvc.perform(get("/bookmarks"))
+        mockMvc.perform(get("/bookmarks")
+                        .param("page", "0")
+                        .param("size", "5"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].title").value("Google"))
-                .andExpect(jsonPath("$[1].title").value("Naver"));
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[0].title").value("Google"))
+                .andExpect(jsonPath("$.content[1].title").value("Naver"));
     }
 
     @DisplayName("태그로 북마크 조회 API - 성공")
@@ -105,11 +107,12 @@ class BookmarkControllerTest {
 
         // when & then
         mockMvc.perform(get("/bookmarks")
-                        .param("tag", "개발"))
+                        .param("tag", "개발")
+                        .param("page", "0")
+                        .param("size", "5"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].title").value("Spring Blog"));
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("Spring Blog"));
     }
 
     @DisplayName("키워드(제목 또는 URL)로 북마크 검색 API - 성공")
@@ -123,11 +126,12 @@ class BookmarkControllerTest {
         // when & then
         // 'java' 키워드로 검색
         mockMvc.perform(get("/bookmarks")
-                        .param("keyword", "java"))
+                        .param("keyword", "java")
+                        .param("page", "0")
+                        .param("size", "5"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].title").value("About Java"));
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(json->jsonPath("$.content[0].title").value("About Java"));
     }
 
 

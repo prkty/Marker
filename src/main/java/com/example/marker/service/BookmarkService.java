@@ -8,6 +8,8 @@ import com.example.marker.dto.BookmarkResponse;
 import com.example.marker.dto.BookmarkUpdateRequest;
 import com.example.marker.repository.BookmarkRepository;
 import com.example.marker.repository.TagRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,10 +50,9 @@ public class BookmarkService {
      * 모든 북마크 목록을 조회합니다.
      * @return 북마크 목록
      */
-    public List<BookmarkResponse> getAllBookmarks() {
-        return bookmarkRepository.findAll().stream()
-                .map(BookmarkResponse::from)
-                .collect(Collectors.toList());
+    public Page<BookmarkResponse> getAllBookmarks(Pageable pageable) {
+        Page<Bookmark> bookmarks = bookmarkRepository.findAll(pageable);
+        return bookmarks.map(BookmarkResponse::from);
     }
 
     /**
@@ -105,11 +106,9 @@ public class BookmarkService {
      * @param tagName 조회할 태그 이름
      * @return 해당 태그를 가진 북마크 목록
      */
-    public List<BookmarkResponse> getBookmarksByTag(String tagName) {
-        List<Bookmark> bookmarks = bookmarkRepository.findByTagName(tagName);
-        return bookmarks.stream()
-                .map(BookmarkResponse::from)
-                .collect(Collectors.toList());
+    public Page<BookmarkResponse> getBookmarksByTag(String tagName, Pageable pageable) {
+        Page<Bookmark> bookmarks = bookmarkRepository.findByTagName(tagName, pageable);
+        return bookmarks.map(BookmarkResponse::from);
     }
 
     /**
@@ -117,11 +116,9 @@ public class BookmarkService {
      * @param keyword 검색할 키워드
      * @return 검색된 북마크 목록
      */
-    public List<BookmarkResponse> searchBookmarks(String keyword) {
-        List<Bookmark> bookmarks = bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase(keyword, keyword);
-        return bookmarks.stream()
-                .map(BookmarkResponse::from)
-                .collect(Collectors.toList());
+    public Page<BookmarkResponse> searchBookmarks(String keyword, Pageable pageable) {
+        Page<Bookmark> bookmarks = bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase(keyword, keyword, pageable);
+        return bookmarks.map(BookmarkResponse::from);
     }
 
 
