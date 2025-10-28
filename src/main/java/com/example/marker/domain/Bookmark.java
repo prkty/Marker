@@ -1,6 +1,8 @@
 package com.example.marker.domain;
 
 import jakarta.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.*;
 
 /**
@@ -48,5 +50,23 @@ public class Bookmark extends BaseTimeEntity {
         this.title = title;
         this.url = url;
         this.memo = memo;
+    }
+
+    /**
+     * 북마크와 태그 간의 연결을 관리하는 컬렉션입니다.
+     * Bookmark가 삭제될 때 연결된 BookmarkTag도 함께 삭제되도록 cascade 설정
+     */
+    @OneToMany(mappedBy = "bookmark", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default // Builder 사용 시 기본값 설정
+    private List<BookmarkTag> bookmarkTags = new ArrayList<>();
+
+    /**
+     * 북마크에 태그를 추가하는 편의 메소드.
+     * 양방향 관계의 무결성을 유지합니다.
+     * @param bookmarkTag 추가할 BookmarkTag 엔티티
+     */
+    public void addBookmarkTag(BookmarkTag bookmarkTag) {
+        this.bookmarkTags.add(bookmarkTag);
+        bookmarkTag.setBookmark(this);
     }
 }

@@ -4,12 +4,15 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 
 import com.example.marker.domain.Bookmark;
+import com.example.marker.domain.BookmarkTag;
+import com.example.marker.domain.Tag;
 
 /**
  * BookmarkRepository에 대한 통합 테스트 클래스.
@@ -21,6 +24,12 @@ class BookmarkRepositoryTest {
 
     @Autowired
     private BookmarkRepository bookmarkRepository;
+
+    @Autowired
+    private TagRepository tagRepository;
+
+    @Autowired
+    private BookmarkTagRepository bookmarkTagRepository;
 
     @DisplayName("북마크 저장 및 ID로 조회 테스트")
     @Test
@@ -92,5 +101,38 @@ class BookmarkRepositoryTest {
 
         // then
         assertThat(bookmarkRepository.findById(savedBookmark.getId())).isEmpty();
+    }
+
+    @DisplayName("태그 이름으로 북마크 조회 테스트")
+    @Test
+    void findByTagName_Success() {
+        // given
+        // 1. 태그 저장
+        Tag devTag = tagRepository.save(Tag.builder().name("개발").build());
+        Tag newsTag = tagRepository.save(Tag.builder().name("뉴스").build());
+
+        // 2. 북마크 저장
+        Bookmark bookmark1 = bookmarkRepository.save(Bookmark.builder().title("Spring Blog").url("https://spring.io/blog").build());
+        Bookmark bookmark2 = bookmarkRepository.save(Bookmark.builder().title("Naver News").url("https://news.naver.com").build());
+        Bookmark bookmark3 = bookmarkRepository.save(Bookmark.builder().title("JPA Docs").url("https://docs.jboss.org/hibernate/orm/6.2/userguide/html_single/Hibernate_User_Guide.html").build());
+
+        // 3. 북마크와 태그 연결
+        bookmarkTagRepository.save(BookmarkTag.builder().bookmark(bookmark1).tag(devTag).build());
+        bookmarkTagRepository.save(BookmarkTag.builder().bookmark(bookmark2).tag(newsTag).build());
+        bookmarkTagRepository.save(BookmarkTag.builder().bookmark(bookmark3).tag(devTag).build());
+
+        // when
+        List<Bookmark> devBookmarks = bookmarkRepository.findByTagName("개발");
+        List<Bookmark> newsBookmarks = bookmarkRepository.findByTagName("뉴스");
+        List<Bookmark> emptyBookmarks = bookmarkRepository.findByTagName("쇼핑");
+
+        // then
+        assertThat(devBookmarks).hasSize(2);
+        assertThat(devBookmarks).extracting("title").containsExactlyInAnyOrder("Spring Blog", "JPA Docs");
+
+        assertThat(newsBookmarks).hasSize(1);
+        assertThat(newsBookmarks.get(0).getTitle()).isEqualTo("Naver News");
+
+        assertThat(emptyBookmarks).isEmpty();
     }
 }
