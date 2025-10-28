@@ -1,30 +1,35 @@
 package com.example.marker.service;
 
-import com.example.marker.domain.Bookmark;
-import com.example.marker.dto.BookmarkCreateRequest;
-import com.example.marker.dto.BookmarkResponse;
-import com.example.marker.dto.BookmarkUpdateRequest;
-import com.example.marker.domain.Tag;
-import com.example.marker.repository.BookmarkRepository;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import com.example.marker.repository.TagRepository;
+import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.anyLong;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
-import java.util.List;
-import java.util.Optional;
+import com.example.marker.domain.Bookmark;
+import com.example.marker.domain.Tag;
+import com.example.marker.dto.BookmarkCreateRequest;
+import com.example.marker.dto.BookmarkResponse;
+import com.example.marker.dto.BookmarkUpdateRequest;
+import com.example.marker.exception.BookmarkNotFoundException;
+import com.example.marker.repository.BookmarkRepository;
+import com.example.marker.repository.TagRepository;
 
 /**
  * BookmarkService에 대한 단위 테스트 클래스.
@@ -139,7 +144,7 @@ class BookmarkServiceTest {
 
         // when & then
         assertThatThrownBy(() -> bookmarkService.getBookmarkById(99L))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(BookmarkNotFoundException.class)
                 .hasMessage("Bookmark not found with id: 99");
 
         verify(bookmarkRepository, times(1)).findById(99L);

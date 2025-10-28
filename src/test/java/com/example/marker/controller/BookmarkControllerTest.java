@@ -19,12 +19,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.marker.domain.Bookmark;
-import com.example.marker.dto.BookmarkCreateRequest;
-import com.example.marker.dto.BookmarkUpdateRequest;
 import com.example.marker.domain.BookmarkTag;
 import com.example.marker.domain.Tag;
-import com.example.marker.repository.TagRepository;
+import com.example.marker.dto.BookmarkCreateRequest;
+import com.example.marker.dto.BookmarkUpdateRequest;
 import com.example.marker.repository.BookmarkRepository;
+import com.example.marker.repository.TagRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
@@ -90,6 +90,21 @@ class BookmarkControllerTest {
                 .andExpect(jsonPath("$.content[1].title").value("Naver"));
     }
 
+    @DisplayName("북마크 생성 API - 실패 (유효성 검증 실패)")
+    @Test
+    void createBookmark_Fail_Validation() throws Exception {
+        // given
+        final BookmarkCreateRequest request = new BookmarkCreateRequest("", "", "Test Memo", List.of("테스트")); // 제목과 URL이 비어있음
+        final String jsonRequest = objectMapper.writeValueAsString(request);
+
+        // when & then
+        mockMvc.perform(post("/bookmarks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonRequest))
+                .andExpect(status().isBadRequest()) // 400 Bad Request
+                .andExpect(jsonPath("$.errors").isArray()); // 에러 필드 존재 확인
+    }
+
     @DisplayName("태그로 북마크 조회 API - 성공")
     @Test
     void getBookmarks_ByTag_Success() throws Exception {
@@ -152,6 +167,17 @@ class BookmarkControllerTest {
                 .andExpect(jsonPath("$.url").value("https://www.google.com"));
     }
 
+    @DisplayName("북마크 상세 조회 API - 실패 (존재하지 않는 ID)")
+    @Test
+    void getBookmarkById_Fail_NotFound() throws Exception {
+        // given
+        Long nonExistentId = 999L;
+
+        // when & then
+        mockMvc.perform(get("/bookmarks/{id}", nonExistentId))
+                .andExpect(status().isNotFound()); // 404 Not Found
+    }
+
     @DisplayName("북마크 수정 API - 성공")
     @Test
     void updateBookmark_Success() throws Exception {
@@ -182,6 +208,39 @@ class BookmarkControllerTest {
         assertThat(updatedBookmark.getBookmarkTags().get(0).getTag().getName()).isEqualTo("수정된태그");
     }
 
+    @DisplayName("북마크 수정 API - 실패 (존재하지 않는 ID)")
+    @Test
+    void updateBookmark_Fail_NotFound() throws Exception {
+        // given
+        Long nonExistentId = 999L;
+        final BookmarkUpdateRequest request = new BookmarkUpdateRequest("Updated Title", "https://updated.com", "Updated Memo", List.of("수정된태그"));
+        final String jsonRequest = objectMapper.writeValueAsString(request);
+
+        // when & then
+        mockMvc.perform(put("/bookmarks/{id}", nonExistentId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonRequest))
+                .andExpect(status().isNotFound()); // 404 Not Found
+    }
+
+    @DisplayName("북마크 수정 API - 실패 (유효성 검증 실패)")
+    @Test
+    void updateBookmark_Fail_Validation() throws Exception {
+        // given
+        final Bookmark savedBookmark = bookmarkRepository.save(Bookmark.builder().title("Original").url("https://original.com").build());
+        final BookmarkUpdateRequest request = new BookmarkUpdateRequest("", "invalid-url", "Updated Memo", List.of()); // 제목 비어있고 URL 형식 오류
+        final String jsonRequest = objectMapper.writeValueAsString(request);
+
+        // when & then
+        mockMvc.perform(put("/bookmarks/{id}", savedBookmark.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonRequest))
+                .andExpect(status().isBadRequest()) // 400 Bad Request
+                .andExpect(jsonPath("$.errors").isArray())
+                .andExpect(jsonPath("$.errors[?(@.field == 'title')]").exists())
+                .andExpect(jsonPath("$.errors[?(@.field == 'url')]").exists());
+    }
+
     @DisplayName("북마크 삭제 API - 성공")
     @Test
     void deleteBookmark_Success() throws Exception {
@@ -197,5 +256,16 @@ class BookmarkControllerTest {
 
         // 데이터베이스에서 실제 데이터가 삭제되었는지 확인
         assertThat(bookmarkRepository.findById(savedBookmark.getId())).isEmpty();
+    }
+
+    @DisplayName("북마크 삭제 API - 실패 (존재하지 않는 ID)")
+    @Test
+    void deleteBookmark_Fail_NotFound() throws Exception {
+        // given
+        Long nonExistentId = 999L;
+
+        // when & then
+        mockMvc.perform(delete("/bookmarks/{id}", nonExistentId))
+                .andExpect(status().isNotFound()); // 404 Not Found
     }
 }
