@@ -18,7 +18,7 @@ src/main/java/com/example/marker
 └── service     # 핵심 비즈니스 로직을 구현하고, 트랜잭션을 관리
 ```
 
-### 1.2 패키지 역할
+### 1.2 패키지 및 구조적 역할
 
 -   **`controller`**: 클라이언트의 HTTP 요청을 수신하는 API 엔드포인트 계층입니다.
     -   `@RestController`를 사용하여 각 클래스를 API 컨트롤러로 정의합니다.
