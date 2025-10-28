@@ -15,18 +15,28 @@ import org.springframework.data.repository.query.Param;
 public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
 
     /**
+     * 특정 사용자의 모든 북마크를 페이징하여 조회합니다.
+     * @param userId 사용자의 ID
+     * @param pageable 페이징 정보
+     * @return 해당 사용자의 북마크 페이지
+     */
+    Page<Bookmark> findAllByUserId(Long userId, Pageable pageable);
+    /**
      * 특정 태그 이름을 포함하는 모든 북마크를 조회합니다.
+     * @param userId 조회할 사용자의 ID
      * @param tagName 조회할 태그의 이름
      * @return 해당 태그를 가진 북마크 목록
      */
-    @Query("SELECT b FROM Bookmark b JOIN b.bookmarkTags bt JOIN bt.tag t WHERE t.name = :tagName")
-    Page<Bookmark> findByTagName(@Param("tagName") String tagName, Pageable pageable);
+    @Query("SELECT b FROM Bookmark b JOIN b.bookmarkTags bt JOIN bt.tag t WHERE b.user.id = :userId AND t.name = :tagName")
+    Page<Bookmark> findByUserIdAndTagName(@Param("userId") Long userId, @Param("tagName") String tagName, Pageable pageable);
 
     /**
      * 제목 또는 URL에 특정 키워드가 포함된 모든 북마크를 대소문자 구분 없이 조회합니다.
+     * @param userId 조회할 사용자의 ID
      * @param titleKeyword 제목에서 검색할 키워드
      * @param urlKeyword URL에서 검색할 키워드
      * @return 해당 키워드를 포함하는 북마크 목록
      */
-    Page<Bookmark> findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase(String titleKeyword, String urlKeyword, Pageable pageable);
+    @Query("SELECT b FROM Bookmark b WHERE b.user.id = :userId AND (LOWER(b.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(b.url) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    Page<Bookmark> findByUserIdAndKeyword(@Param("userId") Long userId, @Param("keyword") String keyword, Pageable pageable);
 }

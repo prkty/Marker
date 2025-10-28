@@ -3,14 +3,22 @@ package com.example.marker.service;
 import com.example.marker.domain.Bookmark;
 import com.example.marker.domain.BookmarkTag;
 import com.example.marker.domain.Tag;
+import com.example.marker.domain.User;
 import com.example.marker.dto.BookmarkCreateRequest;
 import com.example.marker.dto.BookmarkResponse;
 import com.example.marker.dto.BookmarkUpdateRequest;
 import com.example.marker.exception.BookmarkNotFoundException;
+import com.example.marker.exception.UnauthorizedBookmarkAccessException;
 import com.example.marker.repository.BookmarkRepository;
 import com.example.marker.repository.TagRepository;
+import com.example.marker.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +38,7 @@ public class BookmarkService {
 
     private final BookmarkRepository bookmarkRepository;
     private final TagRepository tagRepository;
+    private final UserRepository userRepository; // UserRepository 주입
 
     /**
      * 새로운 북마크를 생성합니다.
@@ -38,7 +47,11 @@ public class BookmarkService {
      */
     @Transactional // 개별적으로 쓰기 트랜잭션을 적용
     public BookmarkResponse createBookmark(BookmarkCreateRequest request) {
-        Bookmark bookmark = request.toEntity();
+        Long currentUserId = getCurrentUserId();
+        // 현재 인증된 사용자 정보를 가져와 북마크에 연결
+        User currentUser = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new UsernameNotFoundException("Authenticated user not found.")); // 이 예외는 토큰이 유효하면 발생하지 않아야 함
+        Bookmark bookmark = request.toEntity(currentUser);
 
         // 태그 처리 로직 추가
         associateTagsWithBookmark(bookmark, request.getTags());
@@ -52,7 +65,8 @@ public class BookmarkService {
      * @return 북마크 목록
      */
     public Page<BookmarkResponse> getAllBookmarks(Pageable pageable) {
-        Page<Bookmark> bookmarks = bookmarkRepository.findAll(pageable);
+        Long currentUserId = getCurrentUserId();
+        Page<Bookmark> bookmarks = bookmarkRepository.findAllByUserId(currentUserId, pageable);
         return bookmarks.map(BookmarkResponse::from);
     }
 
@@ -93,11 +107,9 @@ public class BookmarkService {
      */
     @Transactional
     public void deleteBookmark(Long bookmarkId) {
-        // 삭제하려는 북마크가 존재하는지 확인 (404 응답을 위해)
-        if (!bookmarkRepository.existsById(bookmarkId)) { // existsById로 먼저 확인하여 성능 이점
-            throw new BookmarkNotFoundException(bookmarkId);
-        }
-        bookmarkRepository.deleteById(bookmarkId);
+        // findBookmarkById에서 존재 여부 및 소유권 검증
+        Bookmark bookmarkToDelete = findBookmarkById(bookmarkId);
+        bookmarkRepository.delete(bookmarkToDelete);
     }
 
     /**
@@ -106,7 +118,8 @@ public class BookmarkService {
      * @return 해당 태그를 가진 북마크 목록
      */
     public Page<BookmarkResponse> getBookmarksByTag(String tagName, Pageable pageable) {
-        Page<Bookmark> bookmarks = bookmarkRepository.findByTagName(tagName, pageable);
+        Long currentUserId = getCurrentUserId();
+        Page<Bookmark> bookmarks = bookmarkRepository.findByUserIdAndTagName(currentUserId, tagName, pageable);
         return bookmarks.map(BookmarkResponse::from);
     }
 
@@ -116,7 +129,8 @@ public class BookmarkService {
      * @return 검색된 북마크 목록
      */
     public Page<BookmarkResponse> searchBookmarks(String keyword, Pageable pageable) {
-        Page<Bookmark> bookmarks = bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase(keyword, keyword, pageable);
+        Long currentUserId = getCurrentUserId();
+        Page<Bookmark> bookmarks = bookmarkRepository.findByUserIdAndKeyword(currentUserId, keyword, pageable);
         return bookmarks.map(BookmarkResponse::from);
     }
 
@@ -160,8 +174,26 @@ public class BookmarkService {
     }
 
     // ID로 북마크를 찾는 중복 로직을 처리하는 private 메소드
+    // 이 메소드에서 북마크 존재 여부와 소유권 검증을 함께 수행합니다.
     private Bookmark findBookmarkById(Long bookmarkId) {
-        return bookmarkRepository.findById(bookmarkId)
+        Long currentUserId = getCurrentUserId();
+        Bookmark bookmark = bookmarkRepository.findById(bookmarkId)
                 .orElseThrow(() -> new BookmarkNotFoundException(bookmarkId));
+
+        // 북마크의 소유자와 현재 로그인한 사용자가 일치하는지 확인
+        if (!bookmark.getUser().getId().equals(currentUserId)) {
+            throw new UnauthorizedBookmarkAccessException(bookmarkId, currentUserId);
+        }
+        return bookmark;
+    }
+
+    // 현재 로그인한 사용자의 ID를 가져오는 헬퍼 메소드
+    private Long getCurrentUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
+            throw new AccessDeniedException("User not authenticated."); // 인증되지 않은 사용자 접근 시
+        }
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        return Long.parseLong(userDetails.getUsername()); // CustomUserDetailsService에서 username에 userId를 저장했음
     }
 }

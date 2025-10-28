@@ -1,5 +1,6 @@
 package com.example.marker.service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -8,12 +9,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -21,15 +24,22 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.core.Authentication;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.example.marker.domain.Bookmark;
 import com.example.marker.domain.Tag;
+import com.example.marker.domain.User;
 import com.example.marker.dto.BookmarkCreateRequest;
 import com.example.marker.dto.BookmarkResponse;
 import com.example.marker.dto.BookmarkUpdateRequest;
 import com.example.marker.exception.BookmarkNotFoundException;
+import com.example.marker.exception.UnauthorizedBookmarkAccessException;
 import com.example.marker.repository.BookmarkRepository;
 import com.example.marker.repository.TagRepository;
+import com.example.marker.repository.UserRepository;
 
 /**
  * BookmarkService에 대한 단위 테스트 클래스.
@@ -57,23 +67,43 @@ class BookmarkServiceTest {
     @Mock
     private TagRepository tagRepository;
 
+    @Mock
+    private UserRepository userRepository;
+
+    private User user;
+    private final Long userId = 1L;
+
+    @BeforeEach
+    void setUp() {
+        // 테스트용 사용자 객체 생성
+        user = User.builder().email("test@example.com").password("password").build();
+        // User 객체에 ID를 강제로 설정합니다.
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        // SecurityContextHolder 모의 설정
+        Authentication authentication = mock(Authentication.class);
+        SecurityContext securityContext = mock(SecurityContext.class);
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        SecurityContextHolder.setContext(securityContext);
+
+        // getCurrentUserId()가 항상 1L을 반환하도록 설정
+        org.springframework.security.core.userdetails.User userDetails = new org.springframework.security.core.userdetails.User(String.valueOf(userId), "password", new ArrayList<>());
+        when(authentication.getPrincipal()).thenReturn(userDetails);
+        when(authentication.isAuthenticated()).thenReturn(true);
+    }
 
     @DisplayName("북마크 생성 - 성공")
     @Test
     void createBookmark_Success() {
         // given
         final BookmarkCreateRequest request = new BookmarkCreateRequest("Google", "https://www.google.com", "Search Engine", List.of("검색", "IT"));
-        final Bookmark bookmark = Bookmark.builder()
-                .id(1L)
-                .title(request.getTitle())
-                .url(request.getUrl())
-                .memo(request.getMemo())
-                .build();
 
         // 태그 관련 Mocking
         when(tagRepository.findByName("검색")).thenReturn(Optional.empty());
         when(tagRepository.findByName("IT")).thenReturn(Optional.of(Tag.builder().id(1L).name("IT").build()));
         when(tagRepository.save(any(Tag.class))).thenReturn(Tag.builder().name("검색").build());
+        // 사용자 조회 Mocking
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         // repository.save()가 호출될 때의 가짜 동작 정의
         when(bookmarkRepository.save(any(Bookmark.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -96,12 +126,12 @@ class BookmarkServiceTest {
     @Test
     void getAllBookmarks_Success() {
         // given
-        final Bookmark bookmark1 = Bookmark.builder().id(1L).title("Google").url("https://www.google.com").build();
-        final Bookmark bookmark2 = Bookmark.builder().id(2L).title("Naver").url("https://www.naver.com").build();
+        final Bookmark bookmark1 = Bookmark.builder().id(1L).title("Google").url("https://www.google.com").user(user).build();
+        final Bookmark bookmark2 = Bookmark.builder().id(2L).title("Naver").url("https://www.naver.com").user(user).build();
         final List<Bookmark> bookmarks = List.of(bookmark1, bookmark2);
         final PageRequest pageable = PageRequest.of(0, 5);
 
-        when(bookmarkRepository.findAll(pageable)).thenReturn(new PageImpl<>(bookmarks, pageable, bookmarks.size()));
+        when(bookmarkRepository.findAllByUserId(userId, pageable)).thenReturn(new PageImpl<>(bookmarks, pageable, bookmarks.size()));
 
         // when
         final Page<BookmarkResponse> responses = bookmarkService.getAllBookmarks(pageable);
@@ -115,14 +145,14 @@ class BookmarkServiceTest {
                         tuple("Naver", "https://www.naver.com")
                 );
 
-        verify(bookmarkRepository, times(1)).findAll(pageable);
+        verify(bookmarkRepository, times(1)).findAllByUserId(userId, pageable);
     }
 
     @DisplayName("북마크 상세 조회 - 성공")
     @Test
     void getBookmarkById_Success() {
         // given
-        final Bookmark bookmark = Bookmark.builder().id(1L).title("Google").url("https://www.google.com").memo("memo").build();
+        final Bookmark bookmark = Bookmark.builder().id(1L).title("Google").url("https://www.google.com").memo("memo").user(user).build();
         when(bookmarkRepository.findById(1L)).thenReturn(Optional.of(bookmark));
 
         // when
@@ -159,6 +189,7 @@ class BookmarkServiceTest {
                 .title("Original Title")
                 .url("https://original.com")
                 .memo("Original Memo")
+                .user(user)
                 .build();
 
         final BookmarkUpdateRequest request = new BookmarkUpdateRequest("Updated Title", "https://updated.com", "Updated Memo", List.of("Updated Tag"));
@@ -185,17 +216,16 @@ class BookmarkServiceTest {
     @Test
     void deleteBookmark_Success() {
         // given
-        Long bookmarkId = 1L;
-        when(bookmarkRepository.existsById(bookmarkId)).thenReturn(true);
-        // void 메서드는 doNothing()으로 Mocking
-        doNothing().when(bookmarkRepository).deleteById(bookmarkId);
+        final Bookmark bookmark = Bookmark.builder().id(1L).title("Google").url("https://www.google.com").user(user).build();
+        when(bookmarkRepository.findById(1L)).thenReturn(Optional.of(bookmark));
+        doNothing().when(bookmarkRepository).delete(bookmark);
 
         // when
-        bookmarkService.deleteBookmark(bookmarkId);
+        bookmarkService.deleteBookmark(1L);
 
         // then
-        verify(bookmarkRepository, times(1)).existsById(bookmarkId);
-        verify(bookmarkRepository, times(1)).deleteById(bookmarkId);
+        verify(bookmarkRepository, times(1)).findById(1L);
+        verify(bookmarkRepository, times(1)).delete(bookmark);
     }
 
     @DisplayName("태그로 북마크 조회 - 성공")
@@ -203,10 +233,10 @@ class BookmarkServiceTest {
     void getBookmarksByTag_Success() {
         // given
         String tagName = "개발";
-        Bookmark bookmark1 = Bookmark.builder().id(1L).title("Spring Blog").url("...").build();
-        Bookmark bookmark2 = Bookmark.builder().id(2L).title("JPA Docs").url("...").build();
+        Bookmark bookmark1 = Bookmark.builder().id(1L).title("Spring Blog").url("...").user(user).build();
+        Bookmark bookmark2 = Bookmark.builder().id(2L).title("JPA Docs").url("...").user(user).build();
         PageRequest pageable = PageRequest.of(0, 5);
-        when(bookmarkRepository.findByTagName(tagName, pageable)).thenReturn(new PageImpl<>(List.of(bookmark1, bookmark2), pageable, 2));
+        when(bookmarkRepository.findByUserIdAndTagName(userId, tagName, pageable)).thenReturn(new PageImpl<>(List.of(bookmark1, bookmark2), pageable, 2));
 
         // when
         Page<BookmarkResponse> responses = bookmarkService.getBookmarksByTag(tagName, pageable);
@@ -214,7 +244,7 @@ class BookmarkServiceTest {
         // then
         assertThat(responses.getTotalElements()).isEqualTo(2);
         assertThat(responses.getContent()).extracting("title").containsExactly("Spring Blog", "JPA Docs");
-        verify(bookmarkRepository, times(1)).findByTagName(tagName, pageable);
+        verify(bookmarkRepository, times(1)).findByUserIdAndTagName(userId, tagName, pageable);
     }
 
     @DisplayName("키워드(제목 또는 URL)로 북마크 검색 - 성공")
@@ -222,11 +252,10 @@ class BookmarkServiceTest {
     void searchBookmarks_Success() {
         // given
         String keyword = "spring";
-        Bookmark bookmark1 = Bookmark.builder().id(1L).title("Spring Blog").url("...").build();
-        Bookmark bookmark2 = Bookmark.builder().id(2L).title("Another Spring Guide").url("...").build();
+        Bookmark bookmark1 = Bookmark.builder().id(1L).title("Spring Blog").url("...").user(user).build();
+        Bookmark bookmark2 = Bookmark.builder().id(2L).title("Another Spring Guide").url("...").user(user).build();
         PageRequest pageable = PageRequest.of(0, 5);
-        when(bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase(keyword, keyword, pageable))
-                .thenReturn(new PageImpl<>(List.of(bookmark1, bookmark2), pageable, 2));
+        when(bookmarkRepository.findByUserIdAndKeyword(userId, keyword, pageable)).thenReturn(new PageImpl<>(List.of(bookmark1, bookmark2), pageable, 2));
 
         // when
         Page<BookmarkResponse> responses = bookmarkService.searchBookmarks(keyword, pageable);
@@ -234,6 +263,23 @@ class BookmarkServiceTest {
         // then
         assertThat(responses.getTotalElements()).isEqualTo(2);
         assertThat(responses.getContent()).extracting("title").containsExactly("Spring Blog", "Another Spring Guide");
-        verify(bookmarkRepository, times(1)).findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase(keyword, keyword, pageable);
+        verify(bookmarkRepository, times(1)).findByUserIdAndKeyword(userId, keyword, pageable);
+    }
+
+    @DisplayName("다른 사용자의 북마크 접근 - 실패 (인가 실패)")
+    @Test
+    void accessOthersBookmark_Fail_Forbidden() {
+        // given
+        // 다른 사용자(userId=2)의 북마크
+        User anotherUser = User.builder().email("another@user.com").password("password").build();
+        ReflectionTestUtils.setField(anotherUser, "id", 2L); // 다른 사용자의 ID 설정
+        Bookmark othersBookmark = Bookmark.builder().id(2L).title("Another's Bookmark").url("...").user(anotherUser).build();
+
+        when(bookmarkRepository.findById(2L)).thenReturn(Optional.of(othersBookmark));
+
+        // when & then
+        // 현재 로그인한 사용자(userId=1)가 다른 사용자(userId=2)의 북마크에 접근 시도
+        assertThatThrownBy(() -> bookmarkService.getBookmarkById(2L))
+                .isInstanceOf(UnauthorizedBookmarkAccessException.class);
     }
 }

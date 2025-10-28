@@ -1,9 +1,23 @@
 package com.example.marker.domain;
 
-import jakarta.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
-import lombok.*;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /**
  * 북마크 정보를 담는 JPA 엔티티 클래스입니다.
@@ -34,6 +48,14 @@ public class Bookmark extends BaseTimeEntity {
      */
     @Column(nullable = false)
     private String url;
+
+    /**
+     * 이 북마크를 소유한 사용자.
+     * 지연 로딩(LAZY)으로 설정하여 성능 최적화.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     /**
      * 북마크에 대한 간단한 메모.
