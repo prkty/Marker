@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.hibernate.validator.constraints.URL;
 
 /**
@@ -16,13 +17,16 @@ import org.hibernate.validator.constraints.URL;
 @AllArgsConstructor
 public class BookmarkCreateRequest {
 
+    @Schema(description = "북마크 제목", example = "크래프톤")
     @NotBlank(message = "제목은 필수입니다.")
     private String title;
 
+    @Schema(description = "북마크 URL", example = "https://www.krafton.com/")
     @NotBlank(message = "URL은 필수입니다.")
     @URL(message = "유효하지 않은 URL 형식입니다.")
     private String url;
 
+    @Schema(description = "북마크 메모", example = "한국 게임 사이트")
     private String memo;
 
     /**

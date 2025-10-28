@@ -1,84 +1,86 @@
 package com.example.marker.controller;
 
+import java.net.URI;
+import java.util.List;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.example.marker.dto.BookmarkCreateRequest;
 import com.example.marker.dto.BookmarkResponse;
 import com.example.marker.dto.BookmarkUpdateRequest;
 import com.example.marker.service.BookmarkService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 
-import java.net.URI;
-import java.util.List;
-
-/**
- * 북마크 관련 HTTP 요청을 처리하는 컨트롤러 클래스입니다.
- * '/bookmarks' 경로의 요청을 받아 적절한 서비스 로직을 호출합니다.
- */
+@Tag(name = "Bookmark API", description = "북마크 관리 API")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/bookmarks")
 public class BookmarkController {
-
     private final BookmarkService bookmarkService;
 
-    /**
-     * 새 북마크를 생성합니다. (POST /bookmarks)
-     * 요청 본문(RequestBody)으로 북마크 생성 데이터를 받아 처리합니다.
-     * 생성 성공 시, HTTP 201 Created 상태 코드와 함께 생성된 북마크 정보를 반환합니다.
-     *
-     * @param request 북마크 생성 정보 DTO
-     * @return 생성된 북마크 정보와 Location 헤더를 포함하는 ResponseEntity
-     */
+    @Operation(summary = "북마크 생성", description = "새로운 북마크를 시스템에 등록합니다.", operationId = "bookmark-01")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "북마크 생성 성공", content = @Content(schema = @Schema(implementation = BookmarkResponse.class))),
+            @ApiResponse(responseCode = "400", description = "잘못된 요청 (유효성 검증 실패)")
+    })
     @PostMapping
     public ResponseEntity<BookmarkResponse> createBookmark(@Valid @RequestBody BookmarkCreateRequest request) {
         BookmarkResponse response = bookmarkService.createBookmark(request);
         return ResponseEntity.created(URI.create("/bookmarks/" + response.getId())).body(response);
     }
 
-    /**
-     * 모든 북마크 목록을 조회합니다. (GET /bookmarks)
-     *
-     * @return 북마크 목록과 HTTP 200 OK 상태 코드를 포함하는 ResponseEntity
-     */
+    @Operation(summary = "북마크 전체 조회", description = "시스템에 저장된 모든 북마크 목록을 조회합니다.", operationId = "bookmark-02")
+    @ApiResponse(responseCode = "200", description = "조회 성공")
     @GetMapping
     public ResponseEntity<List<BookmarkResponse>> getAllBookmarks() {
         List<BookmarkResponse> responses = bookmarkService.getAllBookmarks();
         return ResponseEntity.ok(responses);
     }
 
-    /**
-     * 특정 ID의 북마크를 상세 조회합니다. (GET /bookmarks/{id})
-     *
-     * @param id 조회할 북마크의 ID
-     * @return 조회된 북마크 정보와 HTTP 200 OK 상태 코드를 포함하는 ResponseEntity
-     */
+    @Operation(summary = "북마크 상세 조회", description = "지정된 ID의 북마크를 상세 조회합니다.", operationId = "bookmark-03")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 북마크")
+    })
     @GetMapping("/{id}")
     public ResponseEntity<BookmarkResponse> getBookmarkById(@PathVariable Long id) {
         BookmarkResponse response = bookmarkService.getBookmarkById(id);
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * 특정 ID의 북마크 정보를 수정합니다. (PUT /bookmarks/{id})
-     *
-     * @param id 수정할 북마크의 ID
-     * @param request 수정할 북마크 정보 DTO
-     * @return 수정된 북마크 정보와 HTTP 200 OK 상태 코드를 포함하는 ResponseEntity
-     */
+    @Operation(summary = "북마크 수정", description = "지정된 ID의 북마크 정보를 수정합니다.", operationId = "bookmark-04")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "수정 성공"),
+            @ApiResponse(responseCode = "400", description = "잘못된 요청 (유효성 검증 실패)"),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 북마크")
+    })
     @PutMapping("/{id}")
     public ResponseEntity<BookmarkResponse> updateBookmark(@PathVariable Long id, @Valid @RequestBody BookmarkUpdateRequest request) {
         BookmarkResponse response = bookmarkService.updateBookmark(id, request);
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * 특정 ID의 북마크를 삭제합니다. (DELETE /bookmarks/{id})
-     *
-     * @param id 삭제할 북마크의 ID
-     * @return 내용 없이 HTTP 204 No Content 상태 코드를 포함하는 ResponseEntity
-     */
+    @Operation(summary = "북마크 삭제", description = "지정된 ID의 북마크를 삭제합니다.", operationId = "bookmark-05")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "삭제 성공"),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 북마크")
+    })
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteBookmark(@PathVariable Long id) {
         bookmarkService.deleteBookmark(id);
