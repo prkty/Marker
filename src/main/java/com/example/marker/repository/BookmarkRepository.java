@@ -2,6 +2,8 @@ package com.example.marker.repository;
 
 import com.example.marker.domain.Bookmark;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,7 +20,7 @@ public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
      * @return 해당 태그를 가진 북마크 목록
      */
     @Query("SELECT b FROM Bookmark b JOIN b.bookmarkTags bt JOIN bt.tag t WHERE t.name = :tagName")
-    List<Bookmark> findByTagName(@Param("tagName") String tagName);
+    Page<Bookmark> findByTagName(@Param("tagName") String tagName, Pageable pageable);
 
     /**
      * 제목 또는 URL에 특정 키워드가 포함된 모든 북마크를 대소문자 구분 없이 조회합니다.
@@ -26,5 +28,5 @@ public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
      * @param urlKeyword URL에서 검색할 키워드
      * @return 해당 키워드를 포함하는 북마크 목록
      */
-    List<Bookmark> findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase(String titleKeyword, String urlKeyword);
+    Page<Bookmark> findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase(String titleKeyword, String urlKeyword, Pageable pageable);
 }

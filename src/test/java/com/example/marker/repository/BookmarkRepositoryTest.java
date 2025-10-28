@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,11 +62,11 @@ class BookmarkRepositoryTest {
         bookmarkRepository.saveAll(List.of(bookmark1, bookmark2));
 
         // when
-        List<Bookmark> bookmarks = bookmarkRepository.findAll();
+        Page<Bookmark> bookmarksPage = bookmarkRepository.findAll(PageRequest.of(0, 5));
 
         // then
-        assertThat(bookmarks).hasSize(2);
-        assertThat(bookmarks).extracting("title", "url")
+        assertThat(bookmarksPage.getTotalElements()).isEqualTo(2);
+        assertThat(bookmarksPage.getContent()).extracting("title", "url")
                 .containsExactlyInAnyOrder(
                         org.assertj.core.api.Assertions.tuple("Google", "https://www.google.com"),
                         org.assertj.core.api.Assertions.tuple("Naver", "https://www.naver.com")
@@ -121,18 +123,18 @@ class BookmarkRepositoryTest {
         bookmarkTagRepository.save(BookmarkTag.builder().bookmark(bookmark3).tag(devTag).build());
 
         // when
-        List<Bookmark> devBookmarks = bookmarkRepository.findByTagName("개발");
-        List<Bookmark> newsBookmarks = bookmarkRepository.findByTagName("뉴스");
-        List<Bookmark> emptyBookmarks = bookmarkRepository.findByTagName("쇼핑");
+        Page<Bookmark> devBookmarks = bookmarkRepository.findByTagName("개발", PageRequest.of(0, 5));
+        Page<Bookmark> newsBookmarks = bookmarkRepository.findByTagName("뉴스", PageRequest.of(0, 5));
+        Page<Bookmark> emptyBookmarks = bookmarkRepository.findByTagName("쇼핑", PageRequest.of(0, 5));
 
         // then
-        assertThat(devBookmarks).hasSize(2);
-        assertThat(devBookmarks).extracting("title").containsExactlyInAnyOrder("Spring Blog", "JPA Docs");
+        assertThat(devBookmarks.getTotalElements()).isEqualTo(2);
+        assertThat(devBookmarks.getContent()).extracting("title").containsExactlyInAnyOrder("Spring Blog", "JPA Docs");
 
-        assertThat(newsBookmarks).hasSize(1);
-        assertThat(newsBookmarks.get(0).getTitle()).isEqualTo("Naver News");
+        assertThat(newsBookmarks.getTotalElements()).isEqualTo(1);
+        assertThat(newsBookmarks.getContent().get(0).getTitle()).isEqualTo("Naver News");
 
-        assertThat(emptyBookmarks).isEmpty();
+        assertThat(emptyBookmarks.getTotalElements()).isEqualTo(0);
     }
 
     @DisplayName("키워드로 제목 또는 URL 검색 테스트")
@@ -144,17 +146,17 @@ class BookmarkRepositoryTest {
         bookmarkRepository.save(Bookmark.builder().title("Google Search").url("https://www.google.com").build());
 
         // when
-        List<Bookmark> springResult = bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase("spring", "spring");
-        List<Bookmark> comResult = bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase("com", "com");
-        List<Bookmark> emptyResult = bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase("youtube", "youtube");
+        Page<Bookmark> springResult = bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase("spring", "spring", PageRequest.of(0, 5));
+        Page<Bookmark> comResult = bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase("com", "com", PageRequest.of(0, 5));
+        Page<Bookmark> emptyResult = bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase("youtube", "youtube", PageRequest.of(0, 5));
 
         // then
-        assertThat(springResult).hasSize(1);
-        assertThat(springResult.get(0).getTitle()).isEqualTo("Spring Boot Guide");
+        assertThat(springResult.getTotalElements()).isEqualTo(1);
+        assertThat(springResult.getContent().get(0).getTitle()).isEqualTo("Spring Boot Guide");
 
-        assertThat(comResult).hasSize(2);
-        assertThat(comResult).extracting("title").containsExactlyInAnyOrder("Naver News", "Google Search");
+        assertThat(comResult.getTotalElements()).isEqualTo(2);
+        assertThat(comResult.getContent()).extracting("title").containsExactlyInAnyOrder("Naver News", "Google Search");
 
-        assertThat(emptyResult).isEmpty();
+        assertThat(emptyResult.getTotalElements()).isEqualTo(0);
     }
 }

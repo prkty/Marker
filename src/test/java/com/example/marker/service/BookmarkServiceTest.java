@@ -12,6 +12,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import com.example.marker.repository.TagRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -91,22 +94,23 @@ class BookmarkServiceTest {
         final Bookmark bookmark1 = Bookmark.builder().id(1L).title("Google").url("https://www.google.com").build();
         final Bookmark bookmark2 = Bookmark.builder().id(2L).title("Naver").url("https://www.naver.com").build();
         final List<Bookmark> bookmarks = List.of(bookmark1, bookmark2);
+        final PageRequest pageable = PageRequest.of(0, 5);
 
-        when(bookmarkRepository.findAll()).thenReturn(bookmarks);
+        when(bookmarkRepository.findAll(pageable)).thenReturn(new PageImpl<>(bookmarks, pageable, bookmarks.size()));
 
         // when
-        final List<BookmarkResponse> responses = bookmarkService.getAllBookmarks();
+        final Page<BookmarkResponse> responses = bookmarkService.getAllBookmarks(pageable);
 
         // then
-        assertThat(responses).hasSize(2);
-        assertThat(responses)
+        assertThat(responses.getTotalElements()).isEqualTo(2);
+        assertThat(responses.getContent())
                 .extracting("title", "url")
                 .containsExactlyInAnyOrder(
                         tuple("Google", "https://www.google.com"),
                         tuple("Naver", "https://www.naver.com")
                 );
 
-        verify(bookmarkRepository, times(1)).findAll();
+        verify(bookmarkRepository, times(1)).findAll(pageable);
     }
 
     @DisplayName("북마크 상세 조회 - 성공")
@@ -196,15 +200,16 @@ class BookmarkServiceTest {
         String tagName = "개발";
         Bookmark bookmark1 = Bookmark.builder().id(1L).title("Spring Blog").url("...").build();
         Bookmark bookmark2 = Bookmark.builder().id(2L).title("JPA Docs").url("...").build();
-        when(bookmarkRepository.findByTagName(tagName)).thenReturn(List.of(bookmark1, bookmark2));
+        PageRequest pageable = PageRequest.of(0, 5);
+        when(bookmarkRepository.findByTagName(tagName, pageable)).thenReturn(new PageImpl<>(List.of(bookmark1, bookmark2), pageable, 2));
 
         // when
-        List<BookmarkResponse> responses = bookmarkService.getBookmarksByTag(tagName);
+        Page<BookmarkResponse> responses = bookmarkService.getBookmarksByTag(tagName, pageable);
 
         // then
-        assertThat(responses).hasSize(2);
-        assertThat(responses).extracting("title").containsExactly("Spring Blog", "JPA Docs");
-        verify(bookmarkRepository, times(1)).findByTagName(tagName);
+        assertThat(responses.getTotalElements()).isEqualTo(2);
+        assertThat(responses.getContent()).extracting("title").containsExactly("Spring Blog", "JPA Docs");
+        verify(bookmarkRepository, times(1)).findByTagName(tagName, pageable);
     }
 
     @DisplayName("키워드(제목 또는 URL)로 북마크 검색 - 성공")
@@ -214,15 +219,16 @@ class BookmarkServiceTest {
         String keyword = "spring";
         Bookmark bookmark1 = Bookmark.builder().id(1L).title("Spring Blog").url("...").build();
         Bookmark bookmark2 = Bookmark.builder().id(2L).title("Another Spring Guide").url("...").build();
-        when(bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase(keyword, keyword))
-                .thenReturn(List.of(bookmark1, bookmark2));
+        PageRequest pageable = PageRequest.of(0, 5);
+        when(bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase(keyword, keyword, pageable))
+                .thenReturn(new PageImpl<>(List.of(bookmark1, bookmark2), pageable, 2));
 
         // when
-        List<BookmarkResponse> responses = bookmarkService.searchBookmarks(keyword);
+        Page<BookmarkResponse> responses = bookmarkService.searchBookmarks(keyword, pageable);
 
         // then
-        assertThat(responses).hasSize(2);
-        assertThat(responses).extracting("title").containsExactly("Spring Blog", "Another Spring Guide");
-        verify(bookmarkRepository, times(1)).findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase(keyword, keyword);
+        assertThat(responses.getTotalElements()).isEqualTo(2);
+        assertThat(responses.getContent()).extracting("title").containsExactly("Spring Blog", "Another Spring Guide");
+        verify(bookmarkRepository, times(1)).findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase(keyword, keyword, pageable);
     }
 }

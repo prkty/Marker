@@ -2,6 +2,8 @@ package com.example.marker.controller;
 
 import java.net.URI;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,6 +21,7 @@ import com.example.marker.dto.BookmarkResponse;
 import com.example.marker.dto.BookmarkUpdateRequest;
 import com.example.marker.service.BookmarkService;
 
+import org.springdoc.core.annotations.ParameterObject;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -47,20 +50,29 @@ public class BookmarkController {
         return ResponseEntity.created(URI.create("/bookmarks/" + response.getId())).body(response);
     }
 
-    @Operation(summary = "북마크 목록 조회", description = "북마크 목록을 조회합니다. 'tag' 쿼리 파라미터를 사용하여 특정 태그로 필터링할 수 있습니다.", operationId = "bookmark-02")
+    @Operation(summary = "북마크 목록 조회",
+            description = "북마크 목록을 조회합니다. 'tag' 또는 'keyword' 쿼리 파라미터를 사용하여 필터링할 수 있습니다.",
+            operationId = "bookmark-02",
+            parameters = {
+                    @Parameter(name = "page", description = "조회할 페이지 번호 (0부터 시작)", example = "0"),
+                    @Parameter(name = "size", description = "한 페이지에 표시할 항목 수", example = "10"),
+                    @Parameter(name = "sort", description = "정렬 기준 (예: createdAt(속성),desc)", example = "createdAt,desc")
+            }
+    )
     @ApiResponse(responseCode = "200", description = "조회 성공")
     @GetMapping
-    public ResponseEntity<List<BookmarkResponse>> getBookmarks(
+    public ResponseEntity<Page<BookmarkResponse>> getBookmarks(
             @Parameter(description = "조회할 태그 이름 (선택)") @RequestParam(name = "tag", required = false) String tagName,
-            @Parameter(description = "검색할 키워드 (제목 또는 URL, 선택)") @RequestParam(name = "keyword", required = false) String keyword
+            @Parameter(description = "검색할 키워드 (제목 또는 URL, 선택)") @RequestParam(name = "keyword", required = false) String keyword,
+            @ParameterObject Pageable pageable
     ) {
-        List<BookmarkResponse> responses;
+        Page<BookmarkResponse> responses;
         if (tagName != null && !tagName.isBlank()) {
-            responses = bookmarkService.getBookmarksByTag(tagName);
+            responses = bookmarkService.getBookmarksByTag(tagName, pageable);
         } else if (keyword != null && !keyword.isBlank()) {
-            responses = bookmarkService.searchBookmarks(keyword);
+            responses = bookmarkService.searchBookmarks(keyword, pageable);
         } else {
-            responses = bookmarkService.getAllBookmarks();
+            responses = bookmarkService.getAllBookmarks(pageable);
         }
         return ResponseEntity.ok(responses);
     }
