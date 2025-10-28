@@ -113,6 +113,19 @@ public class BookmarkService {
     }
 
     /**
+     * 제목 또는 URL에 특정 키워드가 포함된 북마크 목록을 검색합니다.
+     * @param keyword 검색할 키워드
+     * @return 검색된 북마크 목록
+     */
+    public List<BookmarkResponse> searchBookmarks(String keyword) {
+        List<Bookmark> bookmarks = bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase(keyword, keyword);
+        return bookmarks.stream()
+                .map(BookmarkResponse::from)
+                .collect(Collectors.toList());
+    }
+
+
+    /**
      * 북마크의 태그 정보를 수정합니다. 기존의 모든 태그 연결을 지우고 새로운 태그 목록으로 교체합니다.
      * @param bookmark 태그를 수정할 북마크 엔티티
      * @param tagNames 새로운 태그 이름 목록

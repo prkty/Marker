@@ -206,4 +206,23 @@ class BookmarkServiceTest {
         assertThat(responses).extracting("title").containsExactly("Spring Blog", "JPA Docs");
         verify(bookmarkRepository, times(1)).findByTagName(tagName);
     }
+
+    @DisplayName("키워드(제목 또는 URL)로 북마크 검색 - 성공")
+    @Test
+    void searchBookmarks_Success() {
+        // given
+        String keyword = "spring";
+        Bookmark bookmark1 = Bookmark.builder().id(1L).title("Spring Blog").url("...").build();
+        Bookmark bookmark2 = Bookmark.builder().id(2L).title("Another Spring Guide").url("...").build();
+        when(bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase(keyword, keyword))
+                .thenReturn(List.of(bookmark1, bookmark2));
+
+        // when
+        List<BookmarkResponse> responses = bookmarkService.searchBookmarks(keyword);
+
+        // then
+        assertThat(responses).hasSize(2);
+        assertThat(responses).extracting("title").containsExactly("Spring Blog", "Another Spring Guide");
+        verify(bookmarkRepository, times(1)).findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase(keyword, keyword);
+    }
 }

@@ -19,4 +19,12 @@ public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
      */
     @Query("SELECT b FROM Bookmark b JOIN b.bookmarkTags bt JOIN bt.tag t WHERE t.name = :tagName")
     List<Bookmark> findByTagName(@Param("tagName") String tagName);
+
+    /**
+     * 제목 또는 URL에 특정 키워드가 포함된 모든 북마크를 대소문자 구분 없이 조회합니다.
+     * @param titleKeyword 제목에서 검색할 키워드
+     * @param urlKeyword URL에서 검색할 키워드
+     * @return 해당 키워드를 포함하는 북마크 목록
+     */
+    List<Bookmark> findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase(String titleKeyword, String urlKeyword);
 }

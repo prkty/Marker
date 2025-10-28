@@ -51,11 +51,14 @@ public class BookmarkController {
     @ApiResponse(responseCode = "200", description = "조회 성공")
     @GetMapping
     public ResponseEntity<List<BookmarkResponse>> getBookmarks(
-            @Parameter(description = "조회할 태그 이름 (선택)") @RequestParam(name = "tag", required = false) String tagName
+            @Parameter(description = "조회할 태그 이름 (선택)") @RequestParam(name = "tag", required = false) String tagName,
+            @Parameter(description = "검색할 키워드 (제목 또는 URL, 선택)") @RequestParam(name = "keyword", required = false) String keyword
     ) {
         List<BookmarkResponse> responses;
         if (tagName != null && !tagName.isBlank()) {
             responses = bookmarkService.getBookmarksByTag(tagName);
+        } else if (keyword != null && !keyword.isBlank()) {
+            responses = bookmarkService.searchBookmarks(keyword);
         } else {
             responses = bookmarkService.getAllBookmarks();
         }

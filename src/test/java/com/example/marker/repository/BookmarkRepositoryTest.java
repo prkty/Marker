@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -134,5 +133,28 @@ class BookmarkRepositoryTest {
         assertThat(newsBookmarks.get(0).getTitle()).isEqualTo("Naver News");
 
         assertThat(emptyBookmarks).isEmpty();
+    }
+
+    @DisplayName("키워드로 제목 또는 URL 검색 테스트")
+    @Test
+    void findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase_Success() {
+        // given
+        bookmarkRepository.save(Bookmark.builder().title("Spring Boot Guide").url("https://spring.io/guides").build());
+        bookmarkRepository.save(Bookmark.builder().title("Naver News").url("https://news.naver.com").build());
+        bookmarkRepository.save(Bookmark.builder().title("Google Search").url("https://www.google.com").build());
+
+        // when
+        List<Bookmark> springResult = bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase("spring", "spring");
+        List<Bookmark> comResult = bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase("com", "com");
+        List<Bookmark> emptyResult = bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase("youtube", "youtube");
+
+        // then
+        assertThat(springResult).hasSize(1);
+        assertThat(springResult.get(0).getTitle()).isEqualTo("Spring Boot Guide");
+
+        assertThat(comResult).hasSize(2);
+        assertThat(comResult).extracting("title").containsExactlyInAnyOrder("Naver News", "Google Search");
+
+        assertThat(emptyResult).isEmpty();
     }
 }
