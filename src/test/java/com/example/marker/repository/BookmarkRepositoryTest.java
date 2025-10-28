@@ -4,8 +4,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +16,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import com.example.marker.domain.Bookmark;
 import com.example.marker.domain.BookmarkTag;
 import com.example.marker.domain.Tag;
+import com.example.marker.domain.User;
 
 /**
  * BookmarkRepository에 대한 통합 테스트 클래스.
@@ -32,6 +35,19 @@ class BookmarkRepositoryTest {
     @Autowired
     private BookmarkTagRepository bookmarkTagRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    private User user;
+
+    @BeforeEach
+    void setUp() {
+        user = userRepository.save(User.builder()
+                .email("test@example.com")
+                .password("password")
+                .build());
+    }
+
     @DisplayName("북마크 저장 및 ID로 조회 테스트")
     @Test
     void saveAndFindById() {
@@ -40,6 +56,7 @@ class BookmarkRepositoryTest {
                 .title("Google")
                 .url("https://www.google.com")
                 .memo("Search Engine")
+                .user(user)
                 .build();
 
         // when
@@ -57,8 +74,8 @@ class BookmarkRepositoryTest {
     @Test
     void findAll() {
         // given
-        Bookmark bookmark1 = Bookmark.builder().title("Google").url("https://www.google.com").build();
-        Bookmark bookmark2 = Bookmark.builder().title("Naver").url("https://www.naver.com").build();
+        Bookmark bookmark1 = Bookmark.builder().title("Google").url("https://www.google.com").user(user).build();
+        Bookmark bookmark2 = Bookmark.builder().title("Naver").url("https://www.naver.com").user(user).build();
         bookmarkRepository.saveAll(List.of(bookmark1, bookmark2));
 
         // when
@@ -77,7 +94,7 @@ class BookmarkRepositoryTest {
     @Test
     void update() {
         // given
-        Bookmark savedBookmark = bookmarkRepository.save(Bookmark.builder().title("Original").url("https://original.com").build());
+        Bookmark savedBookmark = bookmarkRepository.save(Bookmark.builder().title("Original").url("https://original.com").user(user).build());
 
         // when
         Bookmark bookmarkToUpdate = bookmarkRepository.findById(savedBookmark.getId()).get();
@@ -95,7 +112,7 @@ class BookmarkRepositoryTest {
     @Test
     void delete() {
         // given
-        Bookmark savedBookmark = bookmarkRepository.save(Bookmark.builder().title("To be deleted").url("https://delete.me").build());
+        Bookmark savedBookmark = bookmarkRepository.save(Bookmark.builder().title("To be deleted").url("https://delete.me").user(user).build());
 
         // when
         bookmarkRepository.deleteById(savedBookmark.getId());
@@ -113,9 +130,9 @@ class BookmarkRepositoryTest {
         Tag newsTag = tagRepository.save(Tag.builder().name("뉴스").build());
 
         // 2. 북마크 저장
-        Bookmark bookmark1 = bookmarkRepository.save(Bookmark.builder().title("Spring Blog").url("https://spring.io/blog").build());
-        Bookmark bookmark2 = bookmarkRepository.save(Bookmark.builder().title("Naver News").url("https://news.naver.com").build());
-        Bookmark bookmark3 = bookmarkRepository.save(Bookmark.builder().title("JPA Docs").url("https://docs.jboss.org/hibernate/orm/6.2/userguide/html_single/Hibernate_User_Guide.html").build());
+        Bookmark bookmark1 = bookmarkRepository.save(Bookmark.builder().title("Spring Blog").url("https://spring.io/blog").user(user).build());
+        Bookmark bookmark2 = bookmarkRepository.save(Bookmark.builder().title("Naver News").url("https://news.naver.com").user(user).build());
+        Bookmark bookmark3 = bookmarkRepository.save(Bookmark.builder().title("JPA Docs").url("https://docs.jboss.org/hibernate/orm/6.2/userguide/html_single/Hibernate_User_Guide.html").user(user).build());
 
         // 3. 북마크와 태그 연결
         bookmarkTagRepository.save(BookmarkTag.builder().bookmark(bookmark1).tag(devTag).build());
@@ -123,9 +140,9 @@ class BookmarkRepositoryTest {
         bookmarkTagRepository.save(BookmarkTag.builder().bookmark(bookmark3).tag(devTag).build());
 
         // when
-        Page<Bookmark> devBookmarks = bookmarkRepository.findByTagName("개발", PageRequest.of(0, 5));
-        Page<Bookmark> newsBookmarks = bookmarkRepository.findByTagName("뉴스", PageRequest.of(0, 5));
-        Page<Bookmark> emptyBookmarks = bookmarkRepository.findByTagName("쇼핑", PageRequest.of(0, 5));
+        Page<Bookmark> devBookmarks = bookmarkRepository.findByUserIdAndTagName(user.getId(), "개발", PageRequest.of(0, 5));
+        Page<Bookmark> newsBookmarks = bookmarkRepository.findByUserIdAndTagName(user.getId(), "뉴스", PageRequest.of(0, 5));
+        Page<Bookmark> emptyBookmarks = bookmarkRepository.findByUserIdAndTagName(user.getId(), "쇼핑", PageRequest.of(0, 5));
 
         // then
         assertThat(devBookmarks.getTotalElements()).isEqualTo(2);
@@ -141,14 +158,14 @@ class BookmarkRepositoryTest {
     @Test
     void findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase_Success() {
         // given
-        bookmarkRepository.save(Bookmark.builder().title("Spring Boot Guide").url("https://spring.io/guides").build());
-        bookmarkRepository.save(Bookmark.builder().title("Naver News").url("https://news.naver.com").build());
-        bookmarkRepository.save(Bookmark.builder().title("Google Search").url("https://www.google.com").build());
+        bookmarkRepository.save(Bookmark.builder().title("Spring Boot Guide").url("https://spring.io/guides").user(user).build());
+        bookmarkRepository.save(Bookmark.builder().title("Naver News").url("https://news.naver.com").user(user).build());
+        bookmarkRepository.save(Bookmark.builder().title("Google Search").url("https://www.google.com").user(user).build());
 
         // when
-        Page<Bookmark> springResult = bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase("spring", "spring", PageRequest.of(0, 5));
-        Page<Bookmark> comResult = bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase("com", "com", PageRequest.of(0, 5));
-        Page<Bookmark> emptyResult = bookmarkRepository.findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase("youtube", "youtube", PageRequest.of(0, 5));
+        Page<Bookmark> springResult = bookmarkRepository.findByUserIdAndKeyword(user.getId(), "spring", PageRequest.of(0, 5));
+        Page<Bookmark> comResult = bookmarkRepository.findByUserIdAndKeyword(user.getId(), "com", PageRequest.of(0, 5));
+        Page<Bookmark> emptyResult = bookmarkRepository.findByUserIdAndKeyword(user.getId(), "youtube", PageRequest.of(0, 5));
 
         // then
         assertThat(springResult.getTotalElements()).isEqualTo(1);

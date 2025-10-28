@@ -4,6 +4,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -21,10 +22,13 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.marker.domain.Bookmark;
 import com.example.marker.domain.BookmarkTag;
 import com.example.marker.domain.Tag;
+import com.example.marker.domain.User;
+import com.example.marker.dto.AuthLoginRequest;
 import com.example.marker.dto.BookmarkCreateRequest;
 import com.example.marker.dto.BookmarkUpdateRequest;
 import com.example.marker.repository.BookmarkRepository;
 import com.example.marker.repository.TagRepository;
+import com.example.marker.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
@@ -51,15 +55,43 @@ class BookmarkControllerTest {
     @Autowired
     private TagRepository tagRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    private String userToken;
+    private User user;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        // 테스트 실행 전, 사용자 생성 및 토큰 발급
+        userRepository.deleteAll();
+        bookmarkRepository.deleteAll();
+
+        // 회원가입
+        mockMvc.perform(post("/auth/signup")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"testuser@example.com\", \"password\":\"password123\"}"));
+
+        // 로그인 후 토큰 획득
+        String response = mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"testuser@example.com\", \"password\":\"password123\"}"))
+                .andReturn().getResponse().getContentAsString();
+
+        userToken = objectMapper.readTree(response).get("token").asText();
+
+        // 생성된 사용자 정보를 가져와서 user 필드에 할당
+        user = userRepository.findByEmail("testuser@example.com").orElseThrow();
+    }
+
     @DisplayName("북마크 생성 API - 성공")
     @Test
     void createBookmark_Success() throws Exception {
         // given
         final BookmarkCreateRequest request = new BookmarkCreateRequest("Test Title", "https://test.com", "Test Memo", List.of("테스트", "Java"));
         final String jsonRequest = objectMapper.writeValueAsString(request);
-
-        // when & then
         mockMvc.perform(post("/bookmarks")
+                        .header("Authorization", "Bearer " + userToken) // 인증 헤더 추가
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonRequest))
                 .andExpect(status().isCreated())
@@ -74,20 +106,20 @@ class BookmarkControllerTest {
     @Test
     void getAllBookmarks_Success() throws Exception {
         // given
-        bookmarkRepository.saveAll(List.of(
-                Bookmark.builder().title("Google").url("https://www.google.com").build(),
-                Bookmark.builder().title("Naver").url("https://www.naver.com").build()
-        ));
+        // 현재 로그인한 사용자의 북마크만 생성
+        bookmarkRepository.save(Bookmark.builder().title("Google").url("https://www.google.com").user(user).build());
+        bookmarkRepository.save(Bookmark.builder().title("Naver").url("https://www.naver.com").user(user).build());
 
         // when & then
         mockMvc.perform(get("/bookmarks")
+                        .header("Authorization", "Bearer " + userToken)
                         .param("page", "0")
                         .param("size", "5"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.totalElements").value(2))
                 .andExpect(jsonPath("$.content[0].title").value("Google"))
-                .andExpect(jsonPath("$.content[1].title").value("Naver"));
+                .andExpect(jsonPath("$.content[1].title").value("Naver")); // 순서가 보장되지 않으므로 더 나은 검증 방법이 필요할 수 있음
     }
 
     @DisplayName("북마크 생성 API - 실패 (유효성 검증 실패)")
@@ -99,6 +131,7 @@ class BookmarkControllerTest {
 
         // when & then
         mockMvc.perform(post("/bookmarks")
+                        .header("Authorization", "Bearer " + userToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonRequest))
                 .andExpect(status().isBadRequest()) // 400 Bad Request
@@ -112,16 +145,17 @@ class BookmarkControllerTest {
         Tag devTag = tagRepository.save(Tag.builder().name("개발").build());
         Tag newsTag = tagRepository.save(Tag.builder().name("뉴스").build());
 
-        Bookmark bookmark1 = Bookmark.builder().title("Spring Blog").url("...").build();
+        Bookmark bookmark1 = Bookmark.builder().title("Spring Blog").url("...").user(user).build();
         bookmark1.addBookmarkTag(BookmarkTag.builder().tag(devTag).build());
         bookmarkRepository.save(bookmark1);
 
-        Bookmark bookmark2 = Bookmark.builder().title("Naver News").url("...").build();
+        Bookmark bookmark2 = Bookmark.builder().title("Naver News").url("...").user(user).build();
         bookmark2.addBookmarkTag(BookmarkTag.builder().tag(newsTag).build());
         bookmarkRepository.save(bookmark2);
 
         // when & then
         mockMvc.perform(get("/bookmarks")
+                        .header("Authorization", "Bearer " + userToken)
                         .param("tag", "개발")
                         .param("page", "0")
                         .param("size", "5"))
@@ -134,13 +168,14 @@ class BookmarkControllerTest {
     @Test
     void getBookmarks_ByKeyword_Success() throws Exception {
         // given
-        bookmarkRepository.save(Bookmark.builder().title("Spring Boot Guide").url("https://spring.io").build());
-        bookmarkRepository.save(Bookmark.builder().title("Naver News").url("https://news.naver.com").build());
-        bookmarkRepository.save(Bookmark.builder().title("About Java").url("https://www.java.com").build());
+        bookmarkRepository.save(Bookmark.builder().title("Spring Boot Guide").url("https://spring.io").user(user).build());
+        bookmarkRepository.save(Bookmark.builder().title("Naver News").url("https://news.naver.com").user(user).build());
+        bookmarkRepository.save(Bookmark.builder().title("About Java").url("https://www.java.com").user(user).build());
 
         // when & then
         // 'java' 키워드로 검색
         mockMvc.perform(get("/bookmarks")
+                        .header("Authorization", "Bearer " + userToken)
                         .param("keyword", "java")
                         .param("page", "0")
                         .param("size", "5"))
@@ -156,11 +191,13 @@ class BookmarkControllerTest {
         // given
         final Bookmark savedBookmark = bookmarkRepository.save(Bookmark.builder()
                 .title("Google")
-                .url("https://www.google.com")
+                .url("https://www.google.com").user(user)
                 .build());
 
         // when & then
-        mockMvc.perform(get("/bookmarks/{id}", savedBookmark.getId()))
+        mockMvc.perform(get("/bookmarks/{id}", savedBookmark.getId())
+                        .header("Authorization", "Bearer " + userToken)
+                )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(savedBookmark.getId()))
                 .andExpect(jsonPath("$.title").value("Google"))
@@ -174,7 +211,9 @@ class BookmarkControllerTest {
         Long nonExistentId = 999L;
 
         // when & then
-        mockMvc.perform(get("/bookmarks/{id}", nonExistentId))
+        mockMvc.perform(get("/bookmarks/{id}", nonExistentId)
+                        .header("Authorization", "Bearer " + userToken)
+                )
                 .andExpect(status().isNotFound()); // 404 Not Found
     }
 
@@ -185,7 +224,7 @@ class BookmarkControllerTest {
         final Bookmark savedBookmark = bookmarkRepository.save(Bookmark.builder()
                 .title("Original Title")
                 .url("https://original.com")
-                .memo("Original Memo")
+                .memo("Original Memo").user(user)
                 .build());
 
         final BookmarkUpdateRequest request = new BookmarkUpdateRequest("Updated Title", "https://updated.com", "Updated Memo", List.of("수정된태그"));
@@ -193,6 +232,7 @@ class BookmarkControllerTest {
 
         // when
         mockMvc.perform(put("/bookmarks/{id}", savedBookmark.getId())
+                        .header("Authorization", "Bearer " + userToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonRequest))
                 .andExpect(status().isOk())
@@ -218,6 +258,7 @@ class BookmarkControllerTest {
 
         // when & then
         mockMvc.perform(put("/bookmarks/{id}", nonExistentId)
+                        .header("Authorization", "Bearer " + userToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonRequest))
                 .andExpect(status().isNotFound()); // 404 Not Found
@@ -227,12 +268,13 @@ class BookmarkControllerTest {
     @Test
     void updateBookmark_Fail_Validation() throws Exception {
         // given
-        final Bookmark savedBookmark = bookmarkRepository.save(Bookmark.builder().title("Original").url("https://original.com").build());
+        final Bookmark savedBookmark = bookmarkRepository.save(Bookmark.builder().title("Original").url("https://original.com").user(user).build());
         final BookmarkUpdateRequest request = new BookmarkUpdateRequest("", "invalid-url", "Updated Memo", List.of()); // 제목 비어있고 URL 형식 오류
         final String jsonRequest = objectMapper.writeValueAsString(request);
 
         // when & then
         mockMvc.perform(put("/bookmarks/{id}", savedBookmark.getId())
+                        .header("Authorization", "Bearer " + userToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonRequest))
                 .andExpect(status().isBadRequest()) // 400 Bad Request
@@ -247,11 +289,12 @@ class BookmarkControllerTest {
         // given
         final Bookmark savedBookmark = bookmarkRepository.save(Bookmark.builder()
                 .title("Google")
-                .url("https://www.google.com")
+                .url("https://www.google.com").user(user)
                 .build());
 
         // when & then
-        mockMvc.perform(delete("/bookmarks/{id}", savedBookmark.getId()))
+        mockMvc.perform(delete("/bookmarks/{id}", savedBookmark.getId())
+                        .header("Authorization", "Bearer " + userToken))
                 .andExpect(status().isNoContent());
 
         // 데이터베이스에서 실제 데이터가 삭제되었는지 확인
@@ -265,7 +308,53 @@ class BookmarkControllerTest {
         Long nonExistentId = 999L;
 
         // when & then
-        mockMvc.perform(delete("/bookmarks/{id}", nonExistentId))
+        mockMvc.perform(delete("/bookmarks/{id}", nonExistentId)
+                        .header("Authorization", "Bearer " + userToken))
                 .andExpect(status().isNotFound()); // 404 Not Found
+    }
+
+    @DisplayName("북마크 API 접근 - 실패 (인증되지 않은 사용자)")
+    @Test
+    void accessBookmarkApi_Fail_Unauthorized() throws Exception {
+        // given
+        // 토큰 없이 요청
+
+        // when & then
+        mockMvc.perform(get("/bookmarks"))
+                .andExpect(status().isForbidden()); // Spring Security는 기본적으로 403 Forbidden 반환
+
+        mockMvc.perform(post("/bookmarks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @DisplayName("다른 사용자의 북마크 접근 - 실패 (인가 실패)")
+    @Test
+    void accessOthersBookmark_Fail_Forbidden() throws Exception {
+        // given
+        // userA (테스트 기본 사용자)가 북마크 생성
+        Bookmark userABookmark = bookmarkRepository.save(Bookmark.builder().title("UserA's Bookmark").url("...").user(user).build());
+
+        // userB 생성 및 토큰 발급
+        mockMvc.perform(post("/auth/signup")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"userB@example.com\", \"password\":\"password123\"}"));
+
+        String userBResponse = mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"userB@example.com\", \"password\":\"password123\"}"))
+                .andReturn().getResponse().getContentAsString();
+        String userBToken = objectMapper.readTree(userBResponse).get("token").asText();
+
+        // when & then
+        // userB가 userA의 북마크에 접근 시도
+        mockMvc.perform(get("/bookmarks/{id}", userABookmark.getId())
+                        .header("Authorization", "Bearer " + userBToken))
+                .andExpect(status().isForbidden()); // 403 Forbidden
+
+        mockMvc.perform(delete("/bookmarks/{id}", userABookmark.getId())
+                        .header("Authorization", "Bearer " + userBToken))
+                .andExpect(status().isForbidden());
     }
 }

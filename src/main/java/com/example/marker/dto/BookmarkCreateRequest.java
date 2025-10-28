@@ -1,6 +1,7 @@
 package com.example.marker.dto;
 
 import com.example.marker.domain.Bookmark;
+import com.example.marker.domain.User;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
@@ -38,11 +39,12 @@ public class BookmarkCreateRequest {
      * DTO 객체를 Bookmark 엔티티 객체로 변환합니다.
      * @return Bookmark 엔티티
      */
-    public Bookmark toEntity() {
+    public Bookmark toEntity(User user) { // User 객체를 인자로 받도록 수정
         return Bookmark.builder()
                 .title(this.title)
                 .url(this.url)
                 .memo(this.memo)
+                .user(user) // User 정보 설정
                 .build();
     }
 }

@@ -52,13 +52,7 @@ public class BookmarkController {
 
     @Operation(summary = "북마크 목록 조회",
             description = "북마크 목록을 조회합니다. 'tag' 또는 'keyword' 쿼리 파라미터를 사용하여 필터링할 수 있습니다.",
-            operationId = "bookmark-02",
-            parameters = {
-                    @Parameter(name = "page", description = "조회할 페이지 번호 (0부터 시작)", example = "0"),
-                    @Parameter(name = "size", description = "한 페이지에 표시할 항목 수", example = "10"),
-                    @Parameter(name = "sort", description = "정렬 기준 (예: createdAt(속성),desc)", example = "createdAt,desc")
-            }
-    )
+            operationId = "bookmark-02")
     @ApiResponse(responseCode = "200", description = "조회 성공")
     @GetMapping
     public ResponseEntity<Page<BookmarkResponse>> getBookmarks(

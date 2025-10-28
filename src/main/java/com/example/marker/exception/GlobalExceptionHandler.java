@@ -52,4 +52,50 @@ public class GlobalExceptionHandler {
         ErrorResponse errorResponse = ErrorResponse.of(HttpStatus.BAD_REQUEST, "입력 값에 대한 유효성 검증에 실패했습니다.", request.getDescription(false).replace("uri=", ""), fieldErrors);
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
+
+    /**
+     * UserAlreadyExistsException이 발생했을 때 처리하는 핸들러입니다.
+     * HTTP 409 Conflict 상태 코드와 에러 메시지를 담은 응답을 반환합니다.
+     * @param ex 발생한 예외
+     * @param request 웹 요청 정보
+     * @return 에러 정보를 담은 ResponseEntity
+     */
+    @ExceptionHandler(UserAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponse> handleUserAlreadyExistsException(UserAlreadyExistsException ex, WebRequest request) {
+        ErrorResponse errorResponse = ErrorResponse.of(
+                HttpStatus.CONFLICT, // 409 Conflict
+                ex.getMessage(),
+                request.getDescription(false).replace("uri=", "")
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
+    }
+
+    /**
+     * InvalidCredentialsException이 발생했을 때 처리하는 핸들러입니다.
+     * HTTP 401 Unauthorized 상태 코드와 에러 메시지를 담은 응답을 반환합니다.
+     * @param ex 발생한 예외
+     * @param request 웹 요청 정보
+     * @return 에러 정보를 담은 ResponseEntity
+     */
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCredentialsException(InvalidCredentialsException ex, WebRequest request) {
+        ErrorResponse errorResponse = ErrorResponse.of(HttpStatus.UNAUTHORIZED, ex.getMessage(), request.getDescription(false).replace("uri=", ""));
+        return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
+    }
+
+    /**
+     * UnauthorizedBookmarkAccessException이 발생했을 때 처리하는 핸들러입니다.
+     * HTTP 403 Forbidden 상태 코드와 에러 메시지를 담은 응답을 반환합니다.
+     * @param ex 발생한 예외
+     * @param request 웹 요청 정보
+     * @return 에러 정보를 담은 ResponseEntity
+     */
+    @ExceptionHandler(UnauthorizedBookmarkAccessException.class)
+    public ResponseEntity<ErrorResponse> handleUnauthorizedBookmarkAccessException(UnauthorizedBookmarkAccessException ex, WebRequest request) {
+        ErrorResponse errorResponse = ErrorResponse.of(
+                HttpStatus.FORBIDDEN,
+                ex.getMessage(),
+                request.getDescription(false).replace("uri=", ""));
+        return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
+    }
 }

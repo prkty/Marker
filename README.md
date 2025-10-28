@@ -34,6 +34,13 @@ src/main/java/com/example/marker
     -   이를 통해 엔티티의 내부 구조가 외부에 직접 노출되는 것을 방지하고, API 명세 변경에 유연하게 대처할 수 있습니다.
 
 -   **`exception`**: 애플리케이션 전역에서 발생하는 예외를 처리하는 로직을 담습니다.
+-   **`config`**: 애플리케이션의 동작 방식을 설정하는 클래스들이 위치합니다.
+    -   `OpenApiConfig`를 통해 Swagger(OpenAPI)의 전역 설정을 관리하고, JWT 인증을 위한 UI 버튼을 추가합니다.
+
+-   **`security`**: Spring Security와 JWT(JSON Web Token) 기반의 인증/인가 로직을 담당합니다.
+    -   `SecurityConfig`: HTTP 요청에 대한 보안 규칙(URL 접근 권한, 필터 체인 등)을 정의합니다.
+    -   `JwtTokenProvider`: JWT 토큰의 생성, 검증, 정보 추출을 담당합니다.
+    -   `JwtAuthenticationFilter`: 모든 요청을 가로채 헤더의 JWT 토큰을 검증하고, 유효하다면 사용자를 인증 처리합니다.
     -   `@RestControllerAdvice`를 사용한 `GlobalExceptionHandler`를 통해 예외 상황에 대한 일관된 응답 형식을 제공합니다.
     -   `BookmarkNotFoundException`과 같은 커스텀 예외 클래스를 정의합니다.
     -   `ErrorResponse` DTO를 통해 표준화된 에러 응답 구조를 제공합니다.
@@ -56,6 +63,10 @@ src/main/java/com/example/marker
     -   제목 또는 URL에 포함된 키워드로 북마크를 검색할 수 있습니다. (대소문자 무시)
 -   **페이지네이션**:
     -   모든 목록 조회 API는 페이지네이션을 지원하여, 대용량 데이터도 효율적으로 처리할 수 있습니다.
+-   **사용자 인증 및 인가**:
+    -   JWT(JSON Web Token)를 이용한 토큰 기반 인증 시스템을 구현했습니다.
+    -   회원가입, 로그인, 로그아웃 API(`POST /auth/signup`, `/login`, `/logout`)를 제공합니다.
+    -   모든 북마크 관련 API는 인증된 사용자만 접근 가능하며, 자신의 북마크만 조회/수정/삭제할 수 있습니다.
 
 ---
 
@@ -148,6 +159,15 @@ API 명세는 두 가지 방법으로 확인할 수 있습니다.
 5.  **효율적인 데이터 조회를 위한 페이지네이션 적용**
 
     Spring Data JPA가 제공하는 `Pageable`과 `Page` 인터페이스를 활용하여 모든 목록 조회 API에 페이지네이션을 적용했습니다. 이를 통해 클라이언트는 필요한 만큼의 데이터만 요청할 수 있으며, 서버는 대용량 데이터 조회 시 발생할 수 있는 성능 저하 및 메모리 문제를 방지할 수 있습니다.
+
+6.  **JWT와 Spring Security를 이용한 인증/인가 시스템 구축**
+
+    API의 보안을 강화하고 사용자별 데이터 격리를 위해 Spring Security와 JWT(JSON Web Token)를 이용한 인증/인가 시스템을 구축했습니다.
+
+    -   **토큰 기반 인증 (JWT)**: 서버에 상태를 저장하지 않는(Stateless) 토큰 방식을 채택하여 확장성을 높이고 RESTful 원칙을 준수했습니다. 세션 방식에 비해 서버 부하가 적고, 다양한 클라이언트(웹, 모바일 등) 환경을 유연하게 지원할 수 있습니다.
+    -   **역할 분리**: 인증 로직은 `security` 패키지(`JwtTokenProvider`, `SecurityConfig` 등)와 `auth` 관련 컨트롤러/서비스(`AuthController`, `AuthService`)에 집중시켜 기존 북마크 도메인과의 결합도를 낮췄습니다.
+    -   **선언적 권한 관리**: `SecurityConfig`에서 URL 패턴(`requestMatchers`)에 따라 인증 필요 여부를 선언적으로 관리하여, 코드 변경 없이 유연하게 보안 정책을 수정할 수 있도록 설계했습니다.
+    -   **데이터 소유권 검증 (인가)**: 모든 북마크 관련 서비스 로직(`BookmarkService`)에 현재 로그인한 사용자의 ID와 북마크의 소유자 ID를 비교하는 검증 로직을 추가했습니다. 이를 통해 다른 사용자의 데이터에 접근하는 것을 원천적으로 차단하고 데이터 무결성을 보장합니다.
 
 ## 5. 개선할 점 또는 아쉬운 점
 
