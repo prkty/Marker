@@ -6,6 +6,7 @@ import com.example.marker.domain.Tag;
 import com.example.marker.dto.BookmarkCreateRequest;
 import com.example.marker.dto.BookmarkResponse;
 import com.example.marker.dto.BookmarkUpdateRequest;
+import com.example.marker.exception.BookmarkNotFoundException;
 import com.example.marker.repository.BookmarkRepository;
 import com.example.marker.repository.TagRepository;
 import org.springframework.data.domain.Page;
@@ -62,8 +63,7 @@ public class BookmarkService {
      * @throws IllegalArgumentException 해당 ID의 북마크가 없을 경우
      */
     public BookmarkResponse getBookmarkById(Long bookmarkId) {
-        Bookmark bookmark = bookmarkRepository.findById(bookmarkId)
-                .orElseThrow(() -> new IllegalArgumentException("Bookmark not found with id: " + bookmarkId));
+        Bookmark bookmark = findBookmarkById(bookmarkId);
         return BookmarkResponse.from(bookmark);
     }
 
@@ -76,8 +76,7 @@ public class BookmarkService {
      */
     @Transactional
     public BookmarkResponse updateBookmark(Long bookmarkId, BookmarkUpdateRequest request) {
-        Bookmark bookmark = bookmarkRepository.findById(bookmarkId)
-                .orElseThrow(() -> new IllegalArgumentException("Bookmark not found with id: " + bookmarkId));
+        Bookmark bookmark = findBookmarkById(bookmarkId);
 
         // 1. 북마크 기본 정보 수정
         bookmark.update(request.getTitle(), request.getUrl(), request.getMemo());
@@ -95,8 +94,8 @@ public class BookmarkService {
     @Transactional
     public void deleteBookmark(Long bookmarkId) {
         // 삭제하려는 북마크가 존재하는지 확인 (404 응답을 위해)
-        if (!bookmarkRepository.existsById(bookmarkId)) {
-            throw new IllegalArgumentException("Bookmark not found with id: " + bookmarkId);
+        if (!bookmarkRepository.existsById(bookmarkId)) { // existsById로 먼저 확인하여 성능 이점
+            throw new BookmarkNotFoundException(bookmarkId);
         }
         bookmarkRepository.deleteById(bookmarkId);
     }
@@ -158,5 +157,11 @@ public class BookmarkService {
                     .build();
             bookmark.addBookmarkTag(bookmarkTag); // 북마크에 연결 정보 추가
         });
+    }
+
+    // ID로 북마크를 찾는 중복 로직을 처리하는 private 메소드
+    private Bookmark findBookmarkById(Long bookmarkId) {
+        return bookmarkRepository.findById(bookmarkId)
+                .orElseThrow(() -> new BookmarkNotFoundException(bookmarkId));
     }
 }

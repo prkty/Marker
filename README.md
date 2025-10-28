@@ -36,6 +36,7 @@ src/main/java/com/example/marker
 -   **`exception`**: 애플리케이션 전역에서 발생하는 예외를 처리하는 로직을 담습니다.
     -   `@RestControllerAdvice`를 사용한 `GlobalExceptionHandler`를 통해 예외 상황에 대한 일관된 응답 형식을 제공합니다.
     -   `BookmarkNotFoundException`과 같은 커스텀 예외 클래스를 정의합니다.
+    -   `ErrorResponse` DTO를 통해 표준화된 에러 응답 구조를 제공합니다.
 
 -   **`repository`**: 데이터베이스와의 통신을 담당하는 데이터 접근 계층입니다.
     -   Spring Data JPA의 `JpaRepository` 인터페이스를 상속받아 기본적인 CRUD 메소드를 자동으로 구현합니다.
@@ -150,10 +151,6 @@ API 명세는 두 가지 방법으로 확인할 수 있습니다.
 
 ## 5. 개선할 점 또는 아쉬운 점
 
-1.  **미흡한 예외 처리**
-
-    현재 존재하지 않는 북마크 ID로 조회/수정/삭제를 시도할 경우, `IllegalArgumentException`이 발생하여 `500 Internal Server Error`가 반환됩니다. 이는 RESTful 원칙에 맞지 않으며, 사용자에게 혼란을 줄 수 있습니다. 향후 `GlobalExceptionHandler`를 도입하여, `404 Not Found`와 같이 명확한 상태 코드와 일관된 에러 메시지를 반환하도록 개선해야 합니다.
-
-2.  **생성/수정 시간 자동화 부재**
+1.  **생성/수정 시간 자동화 부재**
 
     `Bookmark` 엔티티의 `createdAt`, `updatedAt` 필드가 현재는 자동으로 관리되지 않고 있습니다. JPA Auditing 기능을 적용하여, 엔티티가 생성되거나 수정될 때 해당 시간이 데이터베이스에 자동으로 기록되도록 리팩토링할 필요가 있습니다.
