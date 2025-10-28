@@ -112,6 +112,25 @@ class BookmarkControllerTest {
                 .andExpect(jsonPath("$[0].title").value("Spring Blog"));
     }
 
+    @DisplayName("키워드(제목 또는 URL)로 북마크 검색 API - 성공")
+    @Test
+    void getBookmarks_ByKeyword_Success() throws Exception {
+        // given
+        bookmarkRepository.save(Bookmark.builder().title("Spring Boot Guide").url("https://spring.io").build());
+        bookmarkRepository.save(Bookmark.builder().title("Naver News").url("https://news.naver.com").build());
+        bookmarkRepository.save(Bookmark.builder().title("About Java").url("https://www.java.com").build());
+
+        // when & then
+        // 'java' 키워드로 검색
+        mockMvc.perform(get("/bookmarks")
+                        .param("keyword", "java"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].title").value("About Java"));
+    }
+
+
     @DisplayName("북마크 상세 조회 API - 성공")
     @Test
     void getBookmarkById_Success() throws Exception {
