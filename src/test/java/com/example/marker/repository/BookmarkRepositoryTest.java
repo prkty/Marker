@@ -154,9 +154,9 @@ class BookmarkRepositoryTest {
         assertThat(emptyBookmarks.getTotalElements()).isEqualTo(0);
     }
 
-    @DisplayName("키워드로 제목 또는 URL 검색 테스트")
+    @DisplayName("키워드로 제목 또는 URL 검색 테스트 (findByUserIdAndKeyword)")
     @Test
-    void findByTitleContainingIgnoreCaseOrUrlContainingIgnoreCase_Success() {
+    void findByUserIdAndKeyword_Success() {
         // given
         bookmarkRepository.save(Bookmark.builder().title("Spring Boot Guide").url("https://spring.io/guides").user(user).build());
         bookmarkRepository.save(Bookmark.builder().title("Naver News").url("https://news.naver.com").user(user).build());

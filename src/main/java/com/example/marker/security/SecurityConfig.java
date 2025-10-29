@@ -1,5 +1,6 @@
 package com.example.marker.security;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -9,8 +10,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-
-import lombok.RequiredArgsConstructor;
 
 @Configuration
 @EnableWebSecurity
@@ -43,6 +42,9 @@ public class SecurityConfig {
 
                 // H2 콘솔 접근을 위한 헤더 설정 허용
                 .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()))
+
+                // Spring Security의 기본 캐시 제어 비활성화 (직접 제어하기 위함)
+                .headers(headers -> headers.cacheControl(cache -> cache.disable()))
 
                 // JWT 인증 필터를 UsernamePasswordAuthenticationFilter 앞에 추가
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
