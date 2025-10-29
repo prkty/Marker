@@ -2,6 +2,7 @@ package com.example.marker.repository;
 
 import com.example.marker.domain.Bookmark;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -39,4 +40,12 @@ public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
      */
     @Query("SELECT b FROM Bookmark b WHERE b.user.id = :userId AND (LOWER(b.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(b.url) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<Bookmark> findByUserIdAndKeyword(@Param("userId") Long userId, @Param("keyword") String keyword, Pageable pageable);
+
+    /**
+     * ID로 북마크를 조회할 때, 연관된 태그 정보까지 함께 가져옵니다. (N+1 문제 해결)
+     * @param id 조회할 북마크의 ID
+     * @return 태그 정보가 포함된 북마크 Optional 객체
+     */
+    @Query("SELECT b FROM Bookmark b LEFT JOIN FETCH b.user LEFT JOIN FETCH b.bookmarkTags bt LEFT JOIN FETCH bt.tag WHERE b.id = :id")
+    Optional<Bookmark> findByIdWithTags(@Param("id") Long id);
 }

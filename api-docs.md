@@ -1,238 +1,202 @@
-# Bookmark API 명세서
+# Marker API 명세서
 
 이 문서는 북마크 관리 API 서버의 명세를 정의합니다.
 
 **기본 URL**: `http://localhost:8080`
 
 ---
+## 인증 (Authentication)
 
-## 1. 북마크 생성
+본 API의 `/auth` 경로를 제외한 모든 엔드포인트는 인증이 필요합니다.
 
-새로운 북마크를 시스템에 추가합니다.
+인증을 위해서는 `POST /auth/login` API를 통해 발급받은 JWT(JSON Web Token)를 HTTP 요청 헤더에 포함해야 합니다.
 
-- **Endpoint**: `POST /bookmarks`
-- **Description**: 새로운 북마크를 생성합니다.
-
-### 요청 (Request)
-
-#### Request Body
-
-```json
-{
-  "title": "string (required)",
-  "url": "string (required, URL format)",
-  "memo": "string (optional)"
-}
-```
-
-- **Content-Type**: `application/json`
-
-#### 필드 설명
-
-| 필드    | 타입   | 제약 조건                | 설명             |
-|-------|------|------------------------|----------------|
-| `title` | String | 필수, 공백 불가            | 북마크의 제목      |
-| `url`   | String | 필수, 공백 불가, URL 형식 | 북마크의 URL 주소  |
-| `memo`  | String | 선택                     | 북마크에 대한 메모 |
-
-### 응답 (Response)
-
-#### ✅ 성공: 201 Created
-
-북마크 생성이 성공했을 때 반환됩니다. `Location` 헤더에 생성된 리소스의 URI가 포함됩니다.
-
-**Headers**:
-- `Location`: `/bookmarks/{created-id}`
-
-**Body**:
-
-```json
-{
-  "id": 1,
-  "title": "Naver",
-  "url": "https://www.naver.com",
-  "memo": "한국 대표 포털 사이트",
-  "createdAt": "2023-11-21T10:00:00",
-  "updatedAt": "2023-11-21T10:00:00"
-}
-```
-
-#### ❌ 실패: 400 Bad Request
-
-요청 본문의 유효성 검증(Validation)에 실패했을 때 반환됩니다. (예: 필수 필드 누락, URL 형식 오류)
-
-**Body**:
-
-```json
-{
-    "timestamp": "2023-11-21T10:05:00.123Z",
-    "status": 400,
-    "error": "Bad Request",
-    "errors": [
-        {
-            "field": "title",
-            "defaultMessage": "제목은 필수입니다."
-        }
-    ],
-    "path": "/bookmarks"
-}
-```
+- **Header**: `Authorization`
+- **Value**: `Bearer <YOUR_JWT_TOKEN>`
 
 ---
 
-## 2. 북마크 전체 조회
+## 1. 인증 API (Auth API)
 
-시스템에 저장된 모든 북마크 목록을 조회합니다.
+### 1.1 회원가입
 
-- **Endpoint**: `GET /bookmarks`
-- **Description**: 모든 북마크 목록을 조회합니다.
+- **Endpoint**: `POST /auth/signup`
+- **Description**: 이메일과 비밀번호로 새로운 사용자를 등록합니다.
 
-### 요청 (Request)
+#### 요청 (Request)
+- **Content-Type**: `application/json`
+- **Body**:
+  ```json
+  {
+    "email": "user@example.com",
+    "password": "password123!"
+  }
+  ```
 
-요청 본문이나 파라미터가 필요 없습니다.
+#### 응답 (Response)
+- **✅ 201 Created**: 회원가입 성공.
+- **❌ 400 Bad Request**: 요청 값 유효성 검증 실패 (이메일 형식, 비밀번호 길이 등).
+- **❌ 409 Conflict**: 이미 존재하는 이메일.
 
-### 응답 (Response)
+### 1.2 로그인
 
-#### ✅ 성공: 200 OK
+- **Endpoint**: `POST /auth/login`
+- **Description**: 이메일과 비밀번호로 로그인하여 인증 토큰(JWT)을 발급받습니다.
 
-**Body**:
+#### 요청 (Request)
+- **Content-Type**: `application/json`
+- **Body**:
+  ```json
+  {
+    "email": "user@example.com",
+    "password": "password123!"
+  }
+  ```
 
-```json
-[
+#### 응답 (Response)
+- **✅ 200 OK**: 로그인 성공.
+  ```json
+  {
+    "token": "eyJhbGciOiJIUzI1NiJ9..."
+  }
+  ```
+- **❌ 400 Bad Request**: 요청 값 유효성 검증 실패.
+- **❌ 401 Unauthorized**: 이메일 또는 비밀번호가 일치하지 않음.
+
+### 1.3 로그아웃
+
+- **Endpoint**: `POST /auth/logout`
+- **Description**: 서버에 로그아웃을 알립니다. (JWT는 클라이언트 측에서 토큰을 삭제하여 로그아웃을 처리합니다.)
+
+#### 요청 (Request)
+- **Headers**: `Authorization: Bearer <token>`
+
+#### 응답 (Response)
+- **✅ 200 OK**: 로그아웃 요청 성공.
+
+---
+
+## 2. 북마크 API (Bookmark API)
+
+**※ 모든 북마크 API는 `Authorization: Bearer <token>` 헤더가 필요합니다.**
+
+### 2.1 북마크 생성
+
+- **Endpoint**: `POST /bookmarks`
+- **Description**: 현재 로그인한 사용자의 새로운 북마크를 생성합니다.
+
+#### 요청 (Request)
+- **Content-Type**: `application/json`
+- **Body**:
+  ```json
+  {
+    "title": "Naver",
+    "url": "https://www.naver.com",
+    "memo": "한국 대표 포털 사이트",
+    "tags": ["포털", "검색엔진"]
+  }
+  ```
+
+#### 응답 (Response)
+- **✅ 201 Created**: 생성 성공. `Location` 헤더에 생성된 리소스의 URI가 포함됩니다.
+  ```json
   {
     "id": 1,
     "title": "Naver",
     "url": "https://www.naver.com",
     "memo": "한국 대표 포털 사이트",
+    "tags": ["포털", "검색엔진"],
     "createdAt": "2023-11-21T10:00:00",
     "updatedAt": "2023-11-21T10:00:00"
-  },
-  {
-    "id": 2,
-    "title": "Google",
-    "url": "https://www.google.com",
-    "memo": "세계 최대 검색 엔진",
-    "createdAt": "2023-11-21T10:02:00",
-    "updatedAt": "2023-11-21T10:02:00"
   }
-]
-```
+  ```
+- **❌ 400 Bad Request**: 요청 값 유효성 검증 실패.
+- **❌ 401 Unauthorized / 403 Forbidden**: 인증되지 않은 사용자.
 
----
+### 2.2 북마크 목록 조회
 
-## 3. 북마크 상세 조회
+- **Endpoint**: `GET /bookmarks`
+- **Description**: 현재 로그인한 사용자의 북마크 목록을 조회합니다.
 
-특정 ID를 가진 북마크의 상세 정보를 조회합니다.
+#### 요청 (Request)
+- **Query Parameters**:
+  - `page` (optional, integer): 조회할 페이지 번호 (0부터 시작).
+  - `size` (optional, integer): 한 페이지에 표시할 항목 수.
+  - `sort` (optional, string): 정렬 기준 (예: `createdAt,desc`).
+  - `tag` (optional, string): 특정 태그를 가진 북마크만 필터링.
+  - `keyword` (optional, string): 제목 또는 URL에 포함된 키워드로 검색.
+
+#### 응답 (Response)
+- **✅ 200 OK**: 조회 성공. (페이지네이션 정보 포함)
+  ```json
+  {
+    "content": [
+      {
+        "id": 1,
+        "title": "Naver",
+        "url": "https://www.naver.com",
+        "memo": "한국 대표 포털 사이트",
+        "tags": ["포털", "검색엔진"],
+        "createdAt": "2023-11-21T10:00:00",
+        "updatedAt": "2023-11-21T10:00:00"
+      }
+    ],
+    "pageable": { ... },
+    "totalElements": 1,
+    ...
+  }
+  ```
+- **❌ 401 Unauthorized / 403 Forbidden**: 인증되지 않은 사용자.
+
+### 2.3 북마크 상세 조회
 
 - **Endpoint**: `GET /bookmarks/{id}`
-- **Description**: 지정된 ID의 북마크를 상세 조회합니다.
+- **Description**: 현재 로그인한 사용자의 특정 북마크를 상세 조회합니다.
 
-### 요청 (Request)
+#### 요청 (Request)
+- **Path Parameters**:
+  - `id` (required, long): 조회할 북마크의 ID.
 
-#### Path Parameters
+#### 응답 (Response)
+- **✅ 200 OK**: 조회 성공.
+- **❌ 401 Unauthorized / 403 Forbidden**: 인증되지 않았거나, 자신의 북마크가 아닐 경우.
+- **❌ 404 Not Found**: 해당 ID의 북마크가 존재하지 않을 경우.
 
-| 파라미터 | 타입 | 설명             |
-|--------|------|----------------|
-| `id`     | Long | 조회할 북마크의 ID |
-
-### 응답 (Response)
-
-#### ✅ 성공: 200 OK
-
-**Body**:
-
-```json
-{
-  "id": 1,
-  "title": "Naver",
-  "url": "https://www.naver.com",
-  "memo": "한국 대표 포털 사이트",
-  "createdAt": "2023-11-21T10:00:00",
-  "updatedAt": "2023-11-21T10:00:00"
-}
-```
-
-#### ❌ 실패: 404 Not Found
-
-해당 ID의 북마크가 존재하지 않을 경우 반환됩니다. (※ 전역 예외 처리기 구현 시 응답 형식은 달라질 수 있습니다.)
-
----
-
-## 4. 북마크 수정
-
-특정 ID를 가진 북마크의 정보를 수정합니다.
+### 2.4 북마크 수정
 
 - **Endpoint**: `PUT /bookmarks/{id}`
-- **Description**: 지정된 ID의 북마크 정보를 수정합니다.
+- **Description**: 현재 로그인한 사용자의 특정 북마크를 수정합니다.
 
-### 요청 (Request)
-
-#### Path Parameters
-
-| 파라미터 | 타입 | 설명             |
-|--------|------|----------------|
-| `id`     | Long | 수정할 북마크의 ID |
-
-#### Request Body
-
-```json
-{
-  "title": "string (required)",
-  "url": "string (required, URL format)",
-  "memo": "string (optional)"
-}
-```
-
+#### 요청 (Request)
+- **Path Parameters**:
+  - `id` (required, long): 수정할 북마크의 ID.
 - **Content-Type**: `application/json`
+- **Body**:
+  ```json
+  {
+    "title": "네이버",
+    "url": "https://www.naver.com",
+    "memo": "수정된 메모",
+    "tags": ["수정된태그"]
+  }
+  ```
 
-### 응답 (Response)
+#### 응답 (Response)
+- **✅ 200 OK**: 수정 성공. 수정된 북마크 정보를 반환합니다.
+- **❌ 400 Bad Request**: 요청 값 유효성 검증 실패.
+- **❌ 401 Unauthorized / 403 Forbidden**: 인증되지 않았거나, 자신의 북마크가 아닐 경우.
+- **❌ 404 Not Found**: 해당 ID의 북마크가 존재하지 않을 경우.
 
-#### ✅ 성공: 200 OK
-
-수정된 북마크의 정보를 반환합니다.
-
-**Body**:
-
-```json
-{
-  "id": 1,
-  "title": "네이버",
-  "url": "https://www.naver.com",
-  "memo": "수정된 메모",
-  "createdAt": "2023-11-21T10:00:00",
-  "updatedAt": "2023-11-21T11:30:00"
-}
-```
-
-#### ❌ 실패: 400 Bad Request / 404 Not Found
-
-- `400 Bad Request`: 요청 본문의 유효성 검증에 실패한 경우.
-- `404 Not Found`: 수정하려는 ID의 북마크가 존재하지 않는 경우.
-
----
-
-## 5. 북마크 삭제
-
-특정 ID를 가진 북마크를 삭제합니다.
+### 2.5 북마크 삭제
 
 - **Endpoint**: `DELETE /bookmarks/{id}`
-- **Description**: 지정된 ID의 북마크를 삭제합니다.
+- **Description**: 현재 로그인한 사용자의 특정 북마크를 삭제합니다.
 
-### 요청 (Request)
+#### 요청 (Request)
+- **Path Parameters**:
+  - `id` (required, long): 삭제할 북마크의 ID.
 
-#### Path Parameters
-
-| 파라미터 | 타입 | 설명             |
-|--------|------|----------------|
-| `id`     | Long | 삭제할 북마크의 ID |
-
-### 응답 (Response)
-
-#### ✅ 성공: 204 No Content
-
-삭제 성공 시, 응답 본문 없이 상태 코드만 반환됩니다.
-
-#### ❌ 실패: 404 Not Found
-
-삭제하려는 ID의 북마크가 존재하지 않을 경우 반환됩니다.
-
+#### 응답 (Response)
+- **✅ 204 No Content**: 삭제 성공.
+- **❌ 401 Unauthorized / 403 Forbidden**: 인증되지 않았거나, 자신의 북마크가 아닐 경우.
+- **❌ 404 Not Found**: 해당 ID의 북마크가 존재하지 않을 경우.
