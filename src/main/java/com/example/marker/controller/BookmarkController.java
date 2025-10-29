@@ -42,7 +42,9 @@ public class BookmarkController {
     @Operation(summary = "북마크 생성", description = "새로운 북마크를 시스템에 등록합니다.", operationId = "bookmark-01")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "북마크 생성 성공", content = @Content(schema = @Schema(implementation = BookmarkResponse.class))),
-            @ApiResponse(responseCode = "400", description = "잘못된 요청 (유효성 검증 실패)")
+            @ApiResponse(responseCode = "400", description = "잘못된 요청 (유효성 검증 실패)", content = @Content),
+            @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자", content = @Content),
+            @ApiResponse(responseCode = "403", description = "접근 권한 없음", content = @Content)
     })
     @PostMapping
     public ResponseEntity<BookmarkResponse> createBookmark(@Valid @RequestBody BookmarkCreateRequest request) {
@@ -53,7 +55,11 @@ public class BookmarkController {
     @Operation(summary = "북마크 목록 조회",
             description = "북마크 목록을 조회합니다. 'tag' 또는 'keyword' 쿼리 파라미터를 사용하여 필터링할 수 있습니다.",
             operationId = "bookmark-02")
-    @ApiResponse(responseCode = "200", description = "조회 성공")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공", content = @Content(schema = @Schema(implementation = Page.class))),
+            @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자", content = @Content),
+            @ApiResponse(responseCode = "403", description = "접근 권한 없음", content = @Content)
+    })
     @GetMapping
     public ResponseEntity<Page<BookmarkResponse>> getBookmarks(
             @Parameter(description = "조회할 태그 이름 (선택)") @RequestParam(name = "tag", required = false) String tagName,
@@ -73,8 +79,10 @@ public class BookmarkController {
 
     @Operation(summary = "북마크 상세 조회", description = "지정된 ID의 북마크를 상세 조회합니다.", operationId = "bookmark-03")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "조회 성공"),
-            @ApiResponse(responseCode = "404", description = "존재하지 않는 북마크")
+            @ApiResponse(responseCode = "200", description = "조회 성공", content = @Content(schema = @Schema(implementation = BookmarkResponse.class))),
+            @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자", content = @Content),
+            @ApiResponse(responseCode = "403", description = "접근 권한이 없는 북마크", content = @Content),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 북마크", content = @Content)
     })
     @GetMapping("/{id}")
     public ResponseEntity<BookmarkResponse> getBookmarkById(@PathVariable Long id) {
@@ -84,9 +92,11 @@ public class BookmarkController {
 
     @Operation(summary = "북마크 수정", description = "지정된 ID의 북마크 정보를 수정합니다.", operationId = "bookmark-04")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "수정 성공"),
-            @ApiResponse(responseCode = "400", description = "잘못된 요청 (유효성 검증 실패)"),
-            @ApiResponse(responseCode = "404", description = "존재하지 않는 북마크")
+            @ApiResponse(responseCode = "200", description = "수정 성공", content = @Content(schema = @Schema(implementation = BookmarkResponse.class))),
+            @ApiResponse(responseCode = "400", description = "잘못된 요청 (유효성 검증 실패)", content = @Content),
+            @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자", content = @Content),
+            @ApiResponse(responseCode = "403", description = "접근 권한이 없는 북마크", content = @Content),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 북마크", content = @Content)
     })
     @PutMapping("/{id}")
     public ResponseEntity<BookmarkResponse> updateBookmark(@PathVariable Long id, @Valid @RequestBody BookmarkUpdateRequest request) {
@@ -96,8 +106,10 @@ public class BookmarkController {
 
     @Operation(summary = "북마크 삭제", description = "지정된 ID의 북마크를 삭제합니다.", operationId = "bookmark-05")
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "삭제 성공"),
-            @ApiResponse(responseCode = "404", description = "존재하지 않는 북마크")
+            @ApiResponse(responseCode = "204", description = "삭제 성공", content = @Content),
+            @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자", content = @Content),
+            @ApiResponse(responseCode = "403", description = "접근 권한이 없는 북마크", content = @Content),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 북마크", content = @Content)
     })
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteBookmark(@PathVariable Long id) {

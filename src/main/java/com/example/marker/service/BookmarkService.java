@@ -114,7 +114,7 @@ public class BookmarkService {
      * @param request 수정할 정보
      * @return 갱신된 Bookmark 엔티티
      */
-    @CachePut(value = "bookmark", key = "#bookmarkId")
+    @CachePut(value = "bookmark", key = "#root.target.getCurrentUserId() + ':' + #bookmarkId")
     public Bookmark updateAndCacheBookmark(Long bookmarkId, BookmarkUpdateRequest request) {
         Bookmark bookmark = self.findBookmarkEntityById(bookmarkId);
         // 1. 북마크 기본 정보 수정
@@ -128,7 +128,7 @@ public class BookmarkService {
      * 특정 북마크를 삭제합니다.
      * @param bookmarkId 삭제할 북마크의 ID
      */
-    @CacheEvict(value = "bookmark", key = "#bookmarkId")
+    @CacheEvict(value = "bookmark", key = "#root.target.getCurrentUserId() + ':' + #bookmarkId")
     @Transactional
     public void deleteBookmark(Long bookmarkId) {
         // DB 조회를 위해 별도의 public 메소드 호출
@@ -203,7 +203,7 @@ public class BookmarkService {
      * @param bookmarkId 북마크 ID
      * @return 조회된 Bookmark 엔티티
      */
-    @Cacheable(value = "bookmark", key = "#bookmarkId")
+    @Cacheable(value = "bookmark", key = "#root.target.getCurrentUserId() + ':' + #bookmarkId")
     public Bookmark findAndCacheBookmarkById(Long bookmarkId) {
         Long currentUserId = getCurrentUserId();
         Bookmark bookmark = bookmarkRepository.findByIdWithTags(bookmarkId)
@@ -237,7 +237,7 @@ public class BookmarkService {
     }
 
     // 현재 로그인한 사용자의 ID를 가져오는 헬퍼 메소드
-    private Long getCurrentUserId() {
+    public Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
             throw new AccessDeniedException("User not authenticated."); // 인증되지 않은 사용자 접근 시

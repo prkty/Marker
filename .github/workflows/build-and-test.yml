@@ -5,7 +5,7 @@ name: Java CI with Gradle
 on:
   # main 또는 develop 브랜치에 push 이벤트가 발생했을 때 실행됩니다.
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main", "dev" ]
   # main 브랜치를 대상으로 pull request가 생성되거나 업데이트될 때 실행됩니다.
   pull_request:
     branches: [ "main" ]

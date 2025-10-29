@@ -32,7 +32,7 @@ public class BookmarkCreateRequest {
     @Schema(description = "북마크 메모", example = "한국 게임 사이트")
     private String memo;
 
-    @Schema(description = "북마크에 추가할 태그 목록", example = "[\"검색엔진\", \"IT\"]")
+    @Schema(description = "북마크에 추가할 태그 목록", example = "[\"게임\", \"IT\"]")
     private List<String> tags;
 
     /**

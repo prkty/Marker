@@ -38,6 +38,8 @@
 - **❌ 400 Bad Request**: 요청 값 유효성 검증 실패 (이메일 형식, 비밀번호 길이 등).
 - **❌ 409 Conflict**: 이미 존재하는 이메일.
 
+</br>
+
 ### 1.2 로그인
 
 - **Endpoint**: `POST /auth/login`
@@ -62,6 +64,8 @@
   ```
 - **❌ 400 Bad Request**: 요청 값 유효성 검증 실패.
 - **❌ 401 Unauthorized**: 이메일 또는 비밀번호가 일치하지 않음.
+
+</br>
 
 ### 1.3 로그아웃
 
@@ -90,10 +94,10 @@
 - **Body**:
   ```json
   {
-    "title": "Naver",
-    "url": "https://www.naver.com",
-    "memo": "한국 대표 포털 사이트",
-    "tags": ["포털", "검색엔진"]
+    "title": "크래프톤",
+    "url": "https://www.krafton.com/",
+    "memo": "한국 대표 게임 사이트",
+    "tags": ["게임", "IT"]
   }
   ```
 
@@ -102,16 +106,18 @@
   ```json
   {
     "id": 1,
-    "title": "Naver",
-    "url": "https://www.naver.com",
-    "memo": "한국 대표 포털 사이트",
-    "tags": ["포털", "검색엔진"],
+    "title": "크래프톤",
+    "url": "https://www.krafton.com/",
+    "memo": "한국 대표 게임 사이트",
+    "tags": ["게임", "IT"],
     "createdAt": "2023-11-21T10:00:00",
     "updatedAt": "2023-11-21T10:00:00"
   }
   ```
 - **❌ 400 Bad Request**: 요청 값 유효성 검증 실패.
 - **❌ 401 Unauthorized / 403 Forbidden**: 인증되지 않은 사용자.
+
+</br>
 
 ### 2.2 북마크 목록 조회
 
@@ -133,10 +139,10 @@
     "content": [
       {
         "id": 1,
-        "title": "Naver",
-        "url": "https://www.naver.com",
-        "memo": "한국 대표 포털 사이트",
-        "tags": ["포털", "검색엔진"],
+        "title": "크래프톤",
+        "url": "https://www.krafton.com/",
+        "memo": "한국 대표 게임 사이트",
+        "tags": ["게임", "IT"],
         "createdAt": "2023-11-21T10:00:00",
         "updatedAt": "2023-11-21T10:00:00"
       }
@@ -147,6 +153,8 @@
   }
   ```
 - **❌ 401 Unauthorized / 403 Forbidden**: 인증되지 않은 사용자.
+
+</br>
 
 ### 2.3 북마크 상세 조회
 
@@ -162,6 +170,8 @@
 - **❌ 401 Unauthorized / 403 Forbidden**: 인증되지 않았거나, 자신의 북마크가 아닐 경우.
 - **❌ 404 Not Found**: 해당 ID의 북마크가 존재하지 않을 경우.
 
+</br>
+
 ### 2.4 북마크 수정
 
 - **Endpoint**: `PUT /bookmarks/{id}`
@@ -174,8 +184,8 @@
 - **Body**:
   ```json
   {
-    "title": "네이버",
-    "url": "https://www.naver.com",
+    "title": "크래프톤",
+    "url": "https://www.krafton.com/",
     "memo": "수정된 메모",
     "tags": ["수정된태그"]
   }
@@ -186,6 +196,8 @@
 - **❌ 400 Bad Request**: 요청 값 유효성 검증 실패.
 - **❌ 401 Unauthorized / 403 Forbidden**: 인증되지 않았거나, 자신의 북마크가 아닐 경우.
 - **❌ 404 Not Found**: 해당 ID의 북마크가 존재하지 않을 경우.
+
+</br>
 
 ### 2.5 북마크 삭제
 
