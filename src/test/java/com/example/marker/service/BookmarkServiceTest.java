@@ -13,15 +13,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import org.mockito.Spy;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import org.mockito.*;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -53,8 +52,8 @@ import com.example.marker.repository.UserRepository;
 @ExtendWith(MockitoExtension.class)
 class BookmarkServiceTest {
 
-    // @InjectMocks와 @Spy를 함께 사용하여 실제 객체 기반의 스파이를 생성하고,
-    // @Mock으로 선언된 의존성을 주입받습니다.
+    // @InjectMocks 대신 @Spy를 사용하여 실제 객체를 기반으로 한 스파이 객체를 생성합니다.
+    // 이를 통해 실제 로직을 실행하면서도 특정 메소드의 동작을 가로채거나 검증할 수 있습니다.
     @InjectMocks
     @Spy
     private BookmarkService bookmarkService;
@@ -158,9 +157,8 @@ class BookmarkServiceTest {
     void getBookmarkById_Success() {
         // given
         final Bookmark bookmark = Bookmark.builder().id(1L).title("Google").url("https://www.google.com").memo("memo").user(user).build();
-        // getCurrentUserId()를 모의(Mocking)하고, findAndCacheBookmarkById를 호출하도록 합니다.
-        doReturn(userId).when(bookmarkService).getCurrentUserId();
-        doReturn(bookmark).when(bookmarkService).findAndCacheBookmarkById(1L, userId);
+        // Repository가 Bookmark 엔티티를 반환하도록 모의(Mocking)합니다.
+        when(bookmarkRepository.findByIdWithTags(1L)).thenReturn(Optional.of(bookmark));
 
         // when
         final BookmarkResponse response = bookmarkService.getBookmarkById(1L);
@@ -170,23 +168,22 @@ class BookmarkServiceTest {
         assertThat(response.getUrl()).isEqualTo("https://www.google.com");
         assertThat(response.getMemo()).isEqualTo("memo");
 
-        verify(bookmarkService, times(1)).findAndCacheBookmarkById(1L, userId);
+        verify(bookmarkRepository, times(1)).findByIdWithTags(1L);
     }
 
     @DisplayName("북마크 상세 조회 - 실패 (존재하지 않는 ID)")
     @Test
     void getBookmarkById_Fail_NotFound() {
         // given
-        // getCurrentUserId()를 모의(Mocking)합니다.
-        doReturn(userId).when(bookmarkService).getCurrentUserId();
-        doThrow(new BookmarkNotFoundException(99L)).when(bookmarkService).findAndCacheBookmarkById(anyLong(), anyLong());
+        // 스파이 객체의 메소드가 예외를 던지도록 설정합니다.
+        when(bookmarkRepository.findByIdWithTags(anyLong())).thenReturn(Optional.empty());
 
         // when & then
         assertThatThrownBy(() -> bookmarkService.getBookmarkById(99L))
                 .isInstanceOf(BookmarkNotFoundException.class)
                 .hasMessage("Bookmark not found with id: 99");
 
-        verify(bookmarkService, times(1)).findAndCacheBookmarkById(99L, userId);
+        verify(bookmarkRepository, times(1)).findByIdWithTags(99L);
     }
 
     @DisplayName("북마크 수정 - 성공")
@@ -203,11 +200,8 @@ class BookmarkServiceTest {
 
         final BookmarkUpdateRequest request = new BookmarkUpdateRequest("Updated Title", "https://updated.com", "Updated Memo", List.of("Updated Tag"));
 
-        // 스파이 객체의 updateAndCacheBookmark 메소드가 수정된 엔티티를 반환하도록 설정합니다.
-        doAnswer(invocation -> {
-            existingBookmark.update("Updated Title", "https://updated.com", "Updated Memo");
-            return existingBookmark;
-        }).when(bookmarkService).updateAndCacheBookmark(1L, request);
+        // 수정할 북마크를 찾기 위한 Repository 동작을 모의(Mocking)합니다.
+        when(bookmarkRepository.findByIdWithTags(1L)).thenReturn(Optional.of(existingBookmark));
         when(tagRepository.findByName("Updated Tag")).thenReturn(Optional.empty());
         when(tagRepository.save(any(Tag.class))).thenReturn(Tag.builder().name("Updated Tag").build());
 
@@ -219,7 +213,7 @@ class BookmarkServiceTest {
         assertThat(existingBookmark.getUrl()).isEqualTo("https://updated.com");
         assertThat(existingBookmark.getMemo()).isEqualTo("Updated Memo");
 
-        verify(bookmarkService, times(1)).updateAndCacheBookmark(1L, request);
+        verify(bookmarkRepository, times(1)).findByIdWithTags(1L);
 
         assertThat(response.getTags()).containsExactly("Updated Tag");
     }
@@ -228,21 +222,16 @@ class BookmarkServiceTest {
     @Test
     void deleteBookmark_Success() {
         // given
-        // 스파이 객체의 deleteBookmark 메소드가 아무것도 하지 않도록 설정합니다.
-        // 이 테스트의 목적은 컨트롤러가 deleteBookmark를 호출하는지 확인하는 것이므로,
-        // 내부 로직까지 테스트할 필요는 없습니다.
-        doNothing().when(bookmarkService).deleteBookmark(1L);
-        // given 
         // deleteBookmark 내부에서 findBookmarkEntityById가 호출되므로, 해당 호출을 모의(Mocking)
-        Bookmark bookmarkToDelete = Bookmark.builder().id(1L).user(user).build();
-        doReturn(bookmarkToDelete).when(bookmarkService).findBookmarkEntityById(1L);
+        Bookmark bookmarkToDelete = Bookmark.builder().id(1L).title("To Delete").url("...").user(user).build();
+        when(bookmarkRepository.findByIdWithTags(1L)).thenReturn(Optional.of(bookmarkToDelete));
         // 실제 repository의 delete는 아무것도 하지 않도록 설정
         doNothing().when(bookmarkRepository).delete(bookmarkToDelete);
 
         // when
         bookmarkService.deleteBookmark(1L);
         // then
-        verify(bookmarkService, times(1)).deleteBookmark(1L);
+        verify(bookmarkRepository, times(1)).findByIdWithTags(1L);
         verify(bookmarkRepository, times(1)).delete(bookmarkToDelete);
     }
 
@@ -293,9 +282,8 @@ class BookmarkServiceTest {
         ReflectionTestUtils.setField(anotherUser, "id", 2L); // 다른 사용자의 ID 설정
         Bookmark othersBookmark = Bookmark.builder().id(2L).title("Another's Bookmark").url("...").user(anotherUser).build();
         
-        // getCurrentUserId()를 모의(Mocking)합니다.
-        doReturn(userId).when(bookmarkService).getCurrentUserId();
-        doThrow(new UnauthorizedBookmarkAccessException(2L, userId)).when(bookmarkService).findAndCacheBookmarkById(2L, userId);
+        // 다른 사용자의 북마크가 조회되도록 설정합니다.
+        when(bookmarkRepository.findByIdWithTags(2L)).thenReturn(Optional.of(othersBookmark));
 
         // when & then
         // 현재 로그인한 사용자(userId=1)가 다른 사용자(userId=2)의 북마크에 접근 시도
