@@ -89,10 +89,10 @@ public class BookmarkService {
      * @throws IllegalArgumentException 해당 ID의 북마크가 없을 경우
      */
     public BookmarkResponse getBookmarkById(Long bookmarkId) {
-        // 자기 자신의 프록시를 통해 @Cacheable 메소드를 호출하여 자기 호출 문제를 해결
-        Bookmark bookmark = self.findAndCacheBookmarkById(bookmarkId);
+        Long currentUserId = getCurrentUserId();
+        Bookmark bookmark = self.findAndCacheBookmarkById(currentUserId, bookmarkId);
         return BookmarkResponse.from(bookmark);
-    }
+}
 
     /**
      * 특정 북마크의 정보를 수정합니다.
@@ -103,10 +103,10 @@ public class BookmarkService {
      */
     @Transactional
     public BookmarkResponse updateBookmark(Long bookmarkId, BookmarkUpdateRequest request) {
-        // 캐시를 갱신하는 핵심 로직을 호출하고, 반환된 엔티티를 DTO로 변환
-        Bookmark updatedBookmark = self.updateAndCacheBookmark(bookmarkId, request);
+        Long currentUserId = getCurrentUserId();
+        Bookmark updatedBookmark = self.updateAndCacheBookmark(currentUserId, bookmarkId, request);
         return BookmarkResponse.from(updatedBookmark);
-    }
+}
 
     /**
      * 북마크 정보를 수정하고, 그 결과를 캐시에 갱신하는 public 메소드.
@@ -115,27 +115,25 @@ public class BookmarkService {
      * @param request 수정할 정보
      * @return 갱신된 Bookmark 엔티티
      */
-    @CachePut(value = CacheConstants.BOOKMARK_CACHE, key = "#root.target.getCurrentUserId() + ':' + #bookmarkId")
-    public Bookmark updateAndCacheBookmark(Long bookmarkId, BookmarkUpdateRequest request) {
-        Bookmark bookmark = self.findBookmarkEntityById(bookmarkId);
-        // 1. 북마크 기본 정보 수정
+    @CachePut(value = "bookmark", key = "#userId + ':' + #bookmarkId")
+    public Bookmark updateAndCacheBookmark(Long userId, Long bookmarkId, BookmarkUpdateRequest request) {
+        Bookmark bookmark = findBookmarkEntityById(userId, bookmarkId);
         bookmark.update(request.getTitle(), request.getUrl(), request.getMemo());
-        // 2. 태그 정보 수정 (기존 태그 모두 제거 후 새로 추가)
         updateTagsForBookmark(bookmark, request.getTags());
         return bookmark;
-    }
+}
 
     /**
      * 특정 북마크를 삭제합니다.
      * @param bookmarkId 삭제할 북마크의 ID
      */
-    @CacheEvict(value = CacheConstants.BOOKMARK_CACHE, key = "#root.target.getCurrentUserId() + ':' + #bookmarkId")
-    @Transactional
-    public void deleteBookmark(Long bookmarkId) {
-        // DB 조회를 위해 별도의 public 메소드 호출
-        Bookmark bookmarkToDelete = self.findBookmarkEntityById(bookmarkId);
-        bookmarkRepository.delete(bookmarkToDelete);
-    }
+    @CacheEvict(value = "bookmark", key = "#userId + ':' + #bookmarkId")
+@Transactional
+public void deleteBookmark(Long bookmarkId) {
+    Long userId = getCurrentUserId();
+    Bookmark bookmarkToDelete = findBookmarkEntityById(userId, bookmarkId);
+    bookmarkRepository.delete(bookmarkToDelete);
+}
 
     /**
      * 특정 태그를 가진 모든 북마크 목록을 조회합니다.
@@ -204,18 +202,16 @@ public class BookmarkService {
      * @param bookmarkId 북마크 ID
      * @return 조회된 Bookmark 엔티티
      */
-    @Cacheable(value = CacheConstants.BOOKMARK_CACHE, key = "#root.target.getCurrentUserId() + ':' + #bookmarkId")
-    public Bookmark findAndCacheBookmarkById(Long bookmarkId) {
-        Long currentUserId = getCurrentUserId();
+    @Cacheable(value = "bookmark", key = "#userId + ':' + #bookmarkId")
+    public Bookmark findAndCacheBookmarkById(Long userId, Long bookmarkId) {
         Bookmark bookmark = bookmarkRepository.findByIdWithTags(bookmarkId)
-                .orElseThrow(() -> new BookmarkNotFoundException(bookmarkId));
+            .orElseThrow(() -> new BookmarkNotFoundException(bookmarkId));
 
-        // 북마크의 소유자와 현재 로그인한 사용자가 일치하는지 확인
-        if (!bookmark.getUser().getId().equals(currentUserId)) {
-            throw new UnauthorizedBookmarkAccessException(bookmarkId, currentUserId);
-        }
-        return bookmark;
+    if (!bookmark.getUser().getId().equals(userId)) {
+        throw new UnauthorizedBookmarkAccessException(bookmarkId, userId);
     }
+    return bookmark;
+}
 
     /**
      * ID로 북마크 엔티티를 찾는 중복 로직을 처리하는 public 메소드.
@@ -224,18 +220,15 @@ public class BookmarkService {
      * @param bookmarkId 북마크 ID
      * @return 조회된 Bookmark 엔티티
      */
-    public Bookmark findBookmarkEntityById(Long bookmarkId) {
-        Long currentUserId = getCurrentUserId();
-        // 여기도 findByIdWithTags로 변경하여 일관성을 유지합니다.
+    public Bookmark findBookmarkEntityById(Long userId, Long bookmarkId) {
         Bookmark bookmark = bookmarkRepository.findByIdWithTags(bookmarkId)
-                .orElseThrow(() -> new BookmarkNotFoundException(bookmarkId));
+            .orElseThrow(() -> new BookmarkNotFoundException(bookmarkId));
 
-        // 북마크의 소유자와 현재 로그인한 사용자가 일치하는지 확인
-        if (!bookmark.getUser().getId().equals(currentUserId)) {
-            throw new UnauthorizedBookmarkAccessException(bookmarkId, currentUserId);
-        }
-        return bookmark;
+    if (!bookmark.getUser().getId().equals(userId)) {
+        throw new UnauthorizedBookmarkAccessException(bookmarkId, userId);
     }
+    return bookmark;
+}
 
     // 현재 로그인한 사용자의 ID를 가져오는 헬퍼 메소드
     public Long getCurrentUserId() {

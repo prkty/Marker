@@ -1,6 +1,6 @@
 # Marker API 명세서
 
-이 문서는 북마크 관리 API 서버의 명세를 정의합니다.
+이 문서는 북마크 관리 API 서버의 명세를 정의합니다. 응답 예시를 포함했으나 반복적인 예시는 생략되었습니다.
 
 **기본 URL**: `http://localhost:8080`
 
@@ -36,7 +36,38 @@
 #### 응답 (Response)
 - **✅ 201 Created**: 회원가입 성공.
 - **❌ 400 Bad Request**: 요청 값 유효성 검증 실패 (이메일 형식, 비밀번호 길이 등).
+```json
+  {
+    "timestamp": "2023-11-21T10:30:00",
+    "status": 400,
+    "error": "Bad Request",
+    "message": "입력 값에 대한 유효성 검증에 실패했습니다.",
+    "path": "/auth/signup",
+    "errors": [
+      {
+        "field": "email",
+        "value": "invalid-email",
+        "reason": "유효한 이메일 형식이 아닙니다."
+      },
+      {
+        "field": "password",
+        "value": "123",
+        "reason": "비밀번호는 최소 8자 이상이어야 합니다."
+      }
+    ]
+  }
+  ```
+
 - **❌ 409 Conflict**: 이미 존재하는 이메일.
+  ```json
+  {
+    "timestamp": "2023-11-21T10:30:00",
+    "status": 409,
+    "error": "Conflict",
+    "message": "User with email test@example.com already exists.",
+    "path": "/auth/signup"
+  }
+  ```
 
 </br>
 
@@ -64,6 +95,15 @@
   ```
 - **❌ 400 Bad Request**: 요청 값 유효성 검증 실패.
 - **❌ 401 Unauthorized**: 이메일 또는 비밀번호가 일치하지 않음.
+  ```json
+  {
+    "timestamp": "2023-11-21T10:30:00",
+    "status": 401,
+    "error": "Unauthorized",
+    "message": "Invalid email or password.",
+    "path": "/auth/login"
+  }
+  ```
 
 </br>
 
@@ -167,8 +207,39 @@
 
 #### 응답 (Response)
 - **✅ 200 OK**: 조회 성공.
-- **❌ 401 Unauthorized / 403 Forbidden**: 인증되지 않았거나, 자신의 북마크가 아닐 경우.
+  ```json
+  {
+    "id": 1,
+    "title": "크래프톤",
+    "url": "https://www.krafton.com/",
+    "memo": "한국 대표 게임 사이트",
+    "tags": ["게임", "IT"],
+    "createdAt": "2023-11-21T10:00:00",
+    "updatedAt": "2023-11-21T10:00:00"
+  }
+  ```
+
+- **❌ 401 Unauthorized / 403 Forbidden**: 인증되지 않았거나, 자신의 북마크가 아닐 경우. (예시는 403 기준)
+  ```json
+  {
+    "timestamp": "2023-11-21T10:30:00",
+    "status": 403,
+    "error": "Forbidden",
+    "message": "User with ID 2 is not authorized to access bookmark with ID 1",
+    "path": "/bookmarks/1"
+  }
+  ```
+
 - **❌ 404 Not Found**: 해당 ID의 북마크가 존재하지 않을 경우.
+  ```json
+  {
+    "timestamp": "2023-11-21T10:30:00",
+    "status": 404,
+    "error": "Not Found",
+    "message": "Bookmark not found with id: 999",
+    "path": "/bookmarks/999"
+  }
+  ```
 
 </br>
 
@@ -193,9 +264,30 @@
 
 #### 응답 (Response)
 - **✅ 200 OK**: 수정 성공. 수정된 북마크 정보를 반환합니다.
+  ```json
+  {
+    "id": 1,
+    "title": "크래프톤",
+    "url": "https://www.krafton.com/",
+    "memo": "수정된 메모",
+    "tags": ["수정된태그"],
+    "createdAt": "2023-11-21T10:00:00",
+    "updatedAt": "2023-11-21T10:45:00"
+  }
+  ```
+
 - **❌ 400 Bad Request**: 요청 값 유효성 검증 실패.
 - **❌ 401 Unauthorized / 403 Forbidden**: 인증되지 않았거나, 자신의 북마크가 아닐 경우.
 - **❌ 404 Not Found**: 해당 ID의 북마크가 존재하지 않을 경우.
+  ```json
+  {
+    "timestamp": "2023-11-21T10:30:00",
+    "status": 404,
+    "error": "Not Found",
+    "message": "Bookmark not found with id: 999",
+    "path": "/bookmarks/999"
+  }
+  ```
 
 </br>
 

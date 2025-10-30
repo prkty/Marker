@@ -3,6 +3,7 @@ package com.example.marker.service;
 import com.example.marker.domain.Bookmark;
 import com.example.marker.domain.User;
 import com.example.marker.dto.BookmarkUpdateRequest;
+import com.example.marker.exception.UnauthorizedBookmarkAccessException;
 import com.example.marker.repository.BookmarkRepository;
 import com.example.marker.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collections;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -65,7 +67,11 @@ class BookmarkServiceCachingTest {
     @Test
     void getBookmarkById_isCacheable() {
         // given
-        Bookmark bookmark = bookmarkRepository.save(Bookmark.builder().title("Cache Test").url("...").user(user).build());
+        Bookmark bookmark = bookmarkRepository.save(Bookmark.builder()
+                .title("Cache Test")
+                .url("https://cache-test.com")
+                .user(user)
+                .build());
 
         // when
         // 1. 첫 번째 호출 (DB 조회 발생, 캐시에 저장)
@@ -83,14 +89,23 @@ class BookmarkServiceCachingTest {
     @Test
     void updateBookmark_updatesCache() {
         // given
-        Bookmark bookmark = bookmarkRepository.save(Bookmark.builder().title("Original Title").url("...").user(user).build());
+        Bookmark bookmark = bookmarkRepository.save(Bookmark.builder()
+                .title("Original Title")
+                .url("https://original.com")
+                .user(user)
+                .build());
 
         // 1. 캐시에 데이터 저장
         bookmarkService.getBookmarkById(bookmark.getId());
 
         // when
         // 2. 북마크 수정 (DB 업데이트 및 캐시 갱신)
-        BookmarkUpdateRequest updateRequest = new BookmarkUpdateRequest("Updated Title", "...", "...", List.of());
+        BookmarkUpdateRequest updateRequest = new BookmarkUpdateRequest(
+                "Updated Title",
+                "https://updated.com",
+                "Updated Memo",
+                List.of()
+        );
         bookmarkService.updateBookmark(bookmark.getId(), updateRequest);
 
         // 3. 수정 후 다시 조회 (갱신된 캐시에서 조회)
@@ -106,7 +121,11 @@ class BookmarkServiceCachingTest {
     @Test
     void deleteBookmark_evictsCache() {
         // given
-        Bookmark bookmark = bookmarkRepository.save(Bookmark.builder().title("To be deleted").url("...").user(user).build());
+        Bookmark bookmark = bookmarkRepository.save(Bookmark.builder()
+                .title("To be deleted")
+                .url("https://delete.com")
+                .user(user)
+                .build());
 
         // 1. 캐시에 데이터 저장
         bookmarkService.getBookmarkById(bookmark.getId());
@@ -123,7 +142,49 @@ class BookmarkServiceCachingTest {
         }
 
         // then
-        // 첫 번째 조회(1) + 삭제 시 내부 조회(1) + 삭제 후 재조회(1) = 총 3번
-        verify(bookmarkRepository, times(3)).findByIdWithTags(bookmark.getId());
+        // 첫 번째 조회(1) + 삭제 시 내부 조회(1) = 총 2번
+        // 삭제 후에는 데이터가 없으므로 조회를 시도하지 않음
+        verify(bookmarkRepository, times(2)).findByIdWithTags(bookmark.getId());
+    }
+
+    @DisplayName("동일한 북마크를 다른 사용자가 조회하면 권한 오류 발생")
+    @Test
+    void differentUsers_CannotAccessOthersBookmarks() {
+        // given
+        User user2 = userRepository.save(User.builder()
+                .email("user2@example.com")
+                .password("password")
+                .build());
+        
+        Bookmark bookmark = bookmarkRepository.save(Bookmark.builder()
+                .title("User1's Bookmark")
+                .url("https://user1.com")
+                .user(user)
+                .build());
+
+        // user1으로 조회 (성공)
+        UsernamePasswordAuthenticationToken auth1 = new UsernamePasswordAuthenticationToken(
+                String.valueOf(user.getId()), 
+                null, 
+                Collections.emptyList()
+        );
+        SecurityContextHolder.getContext().setAuthentication(auth1);
+        
+        bookmarkService.getBookmarkById(bookmark.getId());
+
+        // when & then
+        // user2로 전환 후 조회 시도 (실패해야 함)
+        UsernamePasswordAuthenticationToken auth2 = new UsernamePasswordAuthenticationToken(
+                String.valueOf(user2.getId()), 
+                null, 
+                Collections.emptyList()
+        );
+        SecurityContextHolder.getContext().setAuthentication(auth2);
+
+        assertThatThrownBy(() -> bookmarkService.getBookmarkById(bookmark.getId()))
+                .isInstanceOf(UnauthorizedBookmarkAccessException.class);
+        
+        // 각 사용자마다 DB 조회가 발생해야 함
+        verify(bookmarkRepository, times(2)).findByIdWithTags(bookmark.getId());
     }
 }

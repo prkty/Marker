@@ -41,3 +41,8 @@ jobs:
     # './gradlew build' 명령어는 컴파일, 모든 테스트 실행, JAR 파일 생성을 한 번에 수행합니다.
     - name: Build with Gradle
       run: ./gradlew build
+
+    # 5. 테스트 커버리지 리포트를 Codecov으로 업로드하기
+    # uses: codecov/codecov-action@v4 -> Codecov에서 제공하는 공식 액션을 사용합니다.
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
