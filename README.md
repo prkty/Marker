@@ -1,4 +1,6 @@
 # 북마크 관리 API 서버 (Marker)
+[![codecov](https://codecov.io/gh/prkty/Marker/branch/main/graph/badge.svg)](https://codecov.io/gh/prkty/Marker)
+[![CI with Gradle](https://github.com/prkty/Marker/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/prkty/Marker/actions/workflows/build-and-test.yml)
 
 이 프로젝트는 개인 북마크를 관리하기 위한 RESTful API 서버입니다. Spring Boot를 기반으로 구축되었으며, 북마크의 CRUD 기능과 더불어 태그 관리 및 키워드 검색 기능을 제공합니다.
 
@@ -244,3 +246,148 @@ Swagger UI에서는 우측 상단의 `Authorize` 버튼을 통해 인증 토큰�
 3.  **역할 기반 접근 제어(RBAC) 구현**
     -   현재 인증 시스템은 "로그인한 사용자인가?"만 구분할 뿐, '일반 사용자(USER)'와 '관리자(ADMIN)'와 같은 역할을 구분하지 않습니다. 이로 인해 모든 사용자가 동일한 권한을 갖게 되어, 향후 관리자 전용 기능(예: 전체 사용자 목록 조회, 특정 사용자 비활성화, 공지사항 등록 등)을 추가하기 어려운 구조입니다.
     -   `User` 엔티티에 `Role` 필드를 추가하고, Spring Security의 설정을 확장하여 역할 기반 접근 제어(Role-Based Access Control)를 구현할 필요가 있습니다. 이는 애플리케이션의 기능을 유연하게 확장하고, 더 세분화된 보안 정책을 적용하기 위한 필수적인 개선점입니다.
+
+4.  **테스트 주도 개발(TDD)의 부재와 테스트 커버리지 개선의 필요성**
+    -   본 프로젝트는 기능 구현 후 테스트 코드를 작성하는 방식으로 진행되었습니다. 이 접근법은 주요 기능의 동작을 검증하는 데는 효과적이지만, 개발자가 이미 작성한 코드의 "성공 경로"를 중심으로 테스트를 작성하게 될 위험이 있습니다.
+    -   마지막 날에서야 JaCoCo를 알게되어 테스트 커버리지를 측정하고, 이를 통해 구현된 코드의 완성도와 테스트의 신뢰성을 객관적인 지표로 확인했습니다.
+    -   본 프로젝트는 기능 구현 후 테스트 코드를 작성하였기에 현재의 테스트는 주로 핵심 기능의 "성공 경로"를 중심으로 작성되어 있습니다. JaCoCo 리포트를 통해 확인된 바와 같이, 일부 조건문의 분기(Branch)나 예측하지 못한 예외 상황, 다양한 경계값에 대한 테스트 케이스가 부족한 점은 시간 제약으로 인한 아쉬움으로 남습니다.
+    -   향후에는 실패하는 테스트를 먼저 작성하는 테스트 주도 개발(TDD) 방식을 도입하여, 요구사항을 더 명확히 이해하고 모든 가능한 시나리오를 커버하는 더 견고하고 신뢰성 높은 테스트 스위트를 구축하는 것을 목표로 하고 싶습니다.
+
+5.  **AI 개발 파트너의 한계와 극복 노력**
+    -   **5-1. 성능 저하 및 컨텍스트 유실**: 프로젝트의 코드량이 증가함에 따라, AI 에이전트(Gemini 2.5 Pro 기준)가 전체 컨텍스트를 이해하고 코드를 생성하는 데 걸리는 시간이 기하급수적으로 늘어났습니다. 또한, IDE를 재시작하거나 새로운 채팅 세션을 시작할 때 이전 대화 기록을 완전히 기억하지 못하는 경우가 있어, 중요한 맥락을 다시 설명해야 하는 비효율이 발생했습니다.
+        -   **대응**: 이를 극복하기 위해, AI가 참조할 핵심 정보를 담은 `GEMINI.md` 파일을 만들어 컨텍스트를 명시적으로 제공하고, 중요한 대화 내용은 Notion에 주기적으로 백업하여 유실 가능성을 줄였습니다.
+    -   **5-2. 빌드 및 환경 인식의 한계**: AI는 코드 생성에는 능숙하지만, 실제 빌드 환경을 완벽하게 이해하지 못하는 한계를 보였습니다. 예를 들어, AI가 제안한 빌드 명령어가 실제로는 동작하지 않거나, 패키지 호환성 문제를 잘못 진단하는 경우가 있었습니다. (존재하는 버전을 없다고 하거나, 최신 버전 정보에 약함)
+        -   **대응**: AI의 빌드 관련 제안을 맹신하지 않고, 항상 로컬 환경의 `CMD`를 통해 직접 빌드를 실행하고, 발생한 오류 로그를 분석하여 그 결과를 다시 AI에게 제공하는 방식으로 문제를 해결했습니다. 이는 AI의 코드 분석 능력과 개발자의 환경 진단 능력을 결합한 효과적인 트러블슈팅 전략이었습니다.
+    -   **5-3. 부정확한 문제 진단**: 특히 빌드 실패 시, AI가 문제의 원인이 되는 포인트를 잘못 짚는 경우가 종종 있었습니다. 파일이나 폴더 구조를 제대로 인식하지 못하는 현상도 관찰되었습니다.
+        -   **대응**: AI의 초기 진단에 의존하기보다, AI를 다양한 가능성을 탐색하는 '브레인스토밍 파트너'로 활용했습니다. 여러 가설을 AI와 함께 검토하되, 최종적인 원인 규명은 개발자가 로그 분석과 실제 코드 검증을 통해 주도적으로 진행했습니다.
+
+---
+
+## 6. 트러블슈팅
+
+### 문제 1: 포트 8080이 이미 사용 중입니다
+
+**증상:**
+```
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Web server failed to start. Port 8080 was already in use.
+```
+
+**해결방법:**
+1. `application.properties`에 다른 포트 지정:
+   ```properties
+   server.port=8081
+   ```
+2. 또는 실행 중인 프로세스 종료:
+   ```bash
+   # Windows
+   netstat -ano | findstr :8080
+   taskkill /PID {프로세스ID} /F
+
+   # Mac/Linux
+   lsof -ti:8080 | xargs kill -9
+   ```
+
+---
+
+### 문제 2: H2 콘솔 접속 시 로그인 실패
+
+**증상:** H2 Console(`http://localhost:8080/h2-console`)에서 로그인이 안 됨
+
+**해결방법:**
+- JDBC URL: `jdbc:h2:mem:testdb`
+- Username: `sa`
+- Password: (비워둠)
+
+---
+
+### 문제 3: Swagger UI에서 401 Unauthorized 에러
+
+**증상:** 북마크 API 호출 시 401 에러 발생
+
+**해결방법:**
+1. `POST /auth/signup`으로 계정 생성
+2. `POST /auth/login`으로 토큰 발급
+3. Swagger UI 우측 상단 `Authorize` 버튼 클릭
+4. Value 필드에 `Bearer {발급받은토큰}` 입력 (Bearer 뒤에 공백 필수)
+5. `Authorize` 클릭 → `Close`
+
+---
+
+### 문제 4: 테스트 실행 시 한글 깨짐
+
+**증상:** 테스트 리포트에서 한글이 깨져 보임
+
+**해결방법:**
+`build.gradle`에 이미 설정되어 있습니다:
+```gradle
+tasks.named('test') {
+    useJUnitPlatform()
+    systemProperty "file.encoding", "UTF-8"
+    jvmArgs "-Dfile.encoding=UTF-8"
+}
+```
+
+만약 IntelliJ에서 여전히 깨진다면:
+1. Settings → Editor → File Encodings
+2. Global Encoding: UTF-8
+3. Project Encoding: UTF-8
+
+---
+
+### 문제 5: JWT 토큰이 너무 빨리 만료됨
+
+**현재 설정:** 24시간 (86400000 밀리초)
+
+**수정 방법:** `application.properties`
+```properties
+# 1시간으로 변경
+jwt.token-validity-in-milliseconds=3600000
+
+# 7일로 변경
+jwt.token-validity-in-milliseconds=604800000
+```
+
+---
+
+## 7. 자주 묻는 질문 (FAQ)
+
+**Q1. 프로덕션 환경에서는 H2 대신 어떤 DB를 사용해야 하나요?**
+- MySQL, PostgreSQL, MariaDB 등을 권장합니다.
+- `application.properties`에서 datasource 설정만 변경하면 됩니다.
+
+**Q2. JWT Secret Key는 어떻게 생성하나요?**
+```bash
+# 256-bit 랜덤 키 생성 (Linux/Mac)
+openssl rand -hex 32
+
+# 또는 온라인 도구 사용
+https://www.allkeysgenerator.com/Random/Security-Encryption-Key-Generator.aspx
+```
+
+**Q3. 캐시를 비활성화하고 싶어요.**
+```properties
+# application.properties에 추가
+spring.cache.type=none
+```
+
+**Q4. API 호출 로그를 보고 싶어요.**
+```properties
+# application.properties에 추가
+logging.level.org.springframework.web=DEBUG
+logging.level.com.example.marker=DEBUG
+```
+
+**Q5. 테스트만 실행하고 싶어요.**
+```bash
+# 특정 테스트 클래스만 실행
+./gradlew test --tests BookmarkServiceTest
+
+# 특정 테스트 메소드만 실행
+./gradlew test --tests BookmarkServiceTest.createBookmark_Success
+```
