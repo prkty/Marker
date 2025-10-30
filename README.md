@@ -11,6 +11,7 @@
 ```bash
 src/main/java/com/example/marker
 ├── config      # 애플리케이션의 주요 설정 (예: Swagger)
+├── constants   # 프로젝트 전역에서 사용되는 상수 값 관리
 ├── controller  # API의 엔드포인트를 정의하고, HTTP 요청/응답을 처리
 ├── domain      # 데이터베이스 테이블과 매핑되는 핵심 비즈니스 모델 (Entity)
 ├── dto         # 계층 간 데이터 전송을 위한 객체 (Data Transfer Object)
@@ -24,6 +25,10 @@ src/main/java/com/example/marker
 
 -   **`config`**: 애플리케이션의 동작 방식을 설정하는 클래스들이 위치합니다.
     -   `OpenApiConfig`를 통해 Swagger(OpenAPI)의 전역 설정을 관리하고, JWT 인증을 위한 UI 버튼을 추가합니다.
+
+-   **`constants`**: 프로젝트 전역에서 사용되는 상수 값들을 모아 관리하는 패키지입니다.
+    -   `JwtConstants`, `CacheConstants`와 같이 기능별로 상수를 분리하여 관리합니다.
+    -   코드 내에 하드코딩된 문자열("매직 스트링")이나 숫자("매직 넘버")를 제거하여, 오타를 방지하고 향후 값이 변경될 때 한 곳에서만 수정할 수 있도록 하여 유지보수성을 높입니다.
 
 -   **`controller`**: 클라이언트의 HTTP 요청을 수신하는 API 엔드포인트 계층입니다.
     -   `@RestController`를 사용하여 각 클래스를 API 컨트롤러로 정의합니다.
