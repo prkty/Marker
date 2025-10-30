@@ -1,5 +1,6 @@
 package com.example.marker.service;
 
+import com.example.marker.constants.CacheConstants;
 import com.example.marker.domain.Bookmark;
 import com.example.marker.domain.BookmarkTag;
 import com.example.marker.domain.Tag;
@@ -114,7 +115,7 @@ public class BookmarkService {
      * @param request 수정할 정보
      * @return 갱신된 Bookmark 엔티티
      */
-    @CachePut(value = "bookmark", key = "#root.target.getCurrentUserId() + ':' + #bookmarkId")
+    @CachePut(value = CacheConstants.BOOKMARK_CACHE, key = "#root.target.getCurrentUserId() + ':' + #bookmarkId")
     public Bookmark updateAndCacheBookmark(Long bookmarkId, BookmarkUpdateRequest request) {
         Bookmark bookmark = self.findBookmarkEntityById(bookmarkId);
         // 1. 북마크 기본 정보 수정
@@ -128,7 +129,7 @@ public class BookmarkService {
      * 특정 북마크를 삭제합니다.
      * @param bookmarkId 삭제할 북마크의 ID
      */
-    @CacheEvict(value = "bookmark", key = "#root.target.getCurrentUserId() + ':' + #bookmarkId")
+    @CacheEvict(value = CacheConstants.BOOKMARK_CACHE, key = "#root.target.getCurrentUserId() + ':' + #bookmarkId")
     @Transactional
     public void deleteBookmark(Long bookmarkId) {
         // DB 조회를 위해 별도의 public 메소드 호출
@@ -203,7 +204,7 @@ public class BookmarkService {
      * @param bookmarkId 북마크 ID
      * @return 조회된 Bookmark 엔티티
      */
-    @Cacheable(value = "bookmark", key = "#root.target.getCurrentUserId() + ':' + #bookmarkId")
+    @Cacheable(value = CacheConstants.BOOKMARK_CACHE, key = "#root.target.getCurrentUserId() + ':' + #bookmarkId")
     public Bookmark findAndCacheBookmarkById(Long bookmarkId) {
         Long currentUserId = getCurrentUserId();
         Bookmark bookmark = bookmarkRepository.findByIdWithTags(bookmarkId)
