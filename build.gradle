@@ -60,7 +60,7 @@ jacoco {
 
 jacocoTestReport {
 	reports {
-		xml.required = false
+		xml.required = true // XML 리포트 생성을 활성화합니다.
 		csv.required = false
 		html.outputLocation = layout.buildDirectory.dir('reports/jacoco') // 리포트 생성 위치 지정
 	}
