@@ -1,5 +1,6 @@
 package com.example.marker.security;
 
+import com.example.marker.constants.JwtConstants;
 import java.io.IOException;
 import java.util.Collections;
 
@@ -44,9 +45,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private String resolveToken(HttpServletRequest request) {
-        String bearerToken = request.getHeader("Authorization");
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7);
+        String bearerToken = request.getHeader(JwtConstants.AUTHORIZATION_HEADER);
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith(JwtConstants.BEARER_PREFIX)) {
+            return bearerToken.substring(JwtConstants.BEARER_PREFIX_LENGTH);
         }
         return null;
     }
