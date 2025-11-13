@@ -1,40 +1,35 @@
 package com.example.marker.service;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyLong;
-import org.mockito.Spy;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.Authentication;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.example.marker.domain.Bookmark;
-import com.example.marker.domain.Tag;
 import com.example.marker.domain.User;
 import com.example.marker.dto.BookmarkCreateRequest;
 import com.example.marker.dto.BookmarkResponse;
@@ -42,7 +37,6 @@ import com.example.marker.dto.BookmarkUpdateRequest;
 import com.example.marker.exception.BookmarkNotFoundException;
 import com.example.marker.exception.UnauthorizedBookmarkAccessException;
 import com.example.marker.repository.BookmarkRepository;
-import com.example.marker.repository.TagRepository;
 import com.example.marker.repository.UserRepository;
 
 /**
@@ -52,10 +46,8 @@ import com.example.marker.repository.UserRepository;
 @ExtendWith(MockitoExtension.class)
 class BookmarkServiceTest {
 
-    // @InjectMocks 대신 @Spy를 사용하여 실제 객체를 기반으로 한 스파이 객체를 생성합니다.
-    // 이를 통해 실제 로직을 실행하면서도 특정 메소드의 동작을 가로채거나 검증할 수 있습니다.
+    // 테스트 대상 클래스. @Mock으로 생성된 객체들이 이 클래스에 주입됩니다.
     @InjectMocks
-    @Spy
     private BookmarkService bookmarkService;
 
     /**
@@ -67,10 +59,16 @@ class BookmarkServiceTest {
     private BookmarkRepository bookmarkRepository;
 
     @Mock
-    private TagRepository tagRepository;
+    private UserRepository userRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private BookmarkFinder bookmarkFinder;
+
+    @Mock
+    private BookmarkUpdater bookmarkUpdater;
+    
+    @Mock
+    private BookmarkTagService bookmarkTagService;
 
     private User user;
     private final Long userId = 1L;
@@ -81,9 +79,6 @@ class BookmarkServiceTest {
         user = User.builder().email("test@example.com").password("password").build();
         // User 객체에 ID를 강제로 설정합니다.
         ReflectionTestUtils.setField(user, "id", userId);
-
-        // @Spy로 생성된 bookmarkService가 자기 자신을 참조할 수 있도록 self 필드를 주입합니다.
-        ReflectionTestUtils.setField(bookmarkService, "self", bookmarkService);
 
         // SecurityContextHolder 모의 설정
         Authentication authentication = mock(Authentication.class);
@@ -102,14 +97,14 @@ class BookmarkServiceTest {
         // given
         final BookmarkCreateRequest request = new BookmarkCreateRequest("Google", "https://www.google.com", "Search Engine", List.of("검색", "IT"));
 
-        // 태그 관련 Mocking
-        when(tagRepository.findByName("검색")).thenReturn(Optional.empty());
-        when(tagRepository.findByName("IT")).thenReturn(Optional.of(Tag.builder().id(1L).name("IT").build()));
-        when(tagRepository.save(any(Tag.class))).thenReturn(Tag.builder().name("검색").build());
         // 사용자 조회 Mocking
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         // repository.save()가 호출될 때의 가짜 동작 정의
-        when(bookmarkRepository.save(any(Bookmark.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(bookmarkRepository.save(any(Bookmark.class))).thenAnswer(invocation -> {
+            Bookmark savedBookmark = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedBookmark, "id", 1L); // ID 설정
+            return savedBookmark;
+        });
 
         // when
         final BookmarkResponse response = bookmarkService.createBookmark(request);
@@ -119,11 +114,11 @@ class BookmarkServiceTest {
         assertThat(response.getTitle()).isEqualTo("Google");
         assertThat(response.getUrl()).isEqualTo("https://www.google.com");
         assertThat(response.getMemo()).isEqualTo("Search Engine");
-        assertThat(response.getTags()).containsExactlyInAnyOrder("검색", "IT");
 
         // repository.save()가 한 번만 호출되었는지 검증
         verify(bookmarkRepository, times(1)).save(any(Bookmark.class));
-        verify(tagRepository, times(1)).save(any(Tag.class));
+        // bookmarkTagService의 메서드가 올바르게 호출되었는지 검증
+        verify(bookmarkTagService, times(1)).associateTagsWithBookmark(any(Bookmark.class), eq(request.getTags()));
     }
 
     @DisplayName("북마크 전체 조회 - 성공")
@@ -157,18 +152,18 @@ class BookmarkServiceTest {
     void getBookmarkById_Success() {
         // given
         final Bookmark bookmark = Bookmark.builder().id(1L).title("Google").url("https://www.google.com").memo("memo").user(user).build();
-        // Repository가 Bookmark 엔티티를 반환하도록 모의(Mocking)합니다.
-        when(bookmarkRepository.findByIdWithTags(1L)).thenReturn(Optional.of(bookmark));
+        // BookmarkFinder가 Bookmark 엔티티를 반환하도록 모의(Mocking)합니다.
+        when(bookmarkFinder.findBookmarkById(1L, userId)).thenReturn(bookmark);
 
         // when
         final BookmarkResponse response = bookmarkService.getBookmarkById(1L);
 
         // then
+        assertThat(response.getId()).isEqualTo(1L);
         assertThat(response.getTitle()).isEqualTo("Google");
-        assertThat(response.getUrl()).isEqualTo("https://www.google.com");
-        assertThat(response.getMemo()).isEqualTo("memo");
 
-        verify(bookmarkRepository, times(1)).findByIdWithTags(1L);
+        // bookmarkFinder.findBookmarkById가 정확한 인자로 1번 호출되었는지 검증
+        verify(bookmarkFinder, times(1)).findBookmarkById(1L, userId);
     }
 
     @DisplayName("북마크 상세 조회 - 실패 (존재하지 않는 ID)")
@@ -176,63 +171,63 @@ class BookmarkServiceTest {
     void getBookmarkById_Fail_NotFound() {
         // given
         // 스파이 객체의 메소드가 예외를 던지도록 설정합니다.
-        when(bookmarkRepository.findByIdWithTags(anyLong())).thenReturn(Optional.empty());
+        when(bookmarkFinder.findBookmarkById(99L, userId)).thenThrow(new BookmarkNotFoundException(99L));
 
         // when & then
         assertThatThrownBy(() -> bookmarkService.getBookmarkById(99L))
                 .isInstanceOf(BookmarkNotFoundException.class)
                 .hasMessage("Bookmark not found with id: 99");
 
-        verify(bookmarkRepository, times(1)).findByIdWithTags(99L);
+        verify(bookmarkFinder, times(1)).findBookmarkById(99L, userId);
     }
 
     @DisplayName("북마크 수정 - 성공")
     @Test
     void updateBookmark_Success() {
         // given
-        final Bookmark existingBookmark = Bookmark.builder()
+        final BookmarkUpdateRequest request = new BookmarkUpdateRequest("Updated Title", "https://updated.com", "Updated Memo", List.of("Updated Tag"));
+        final Bookmark updatedBookmark = Bookmark.builder()
                 .id(1L)
-                .title("Original Title")
-                .url("https://original.com")
-                .memo("Original Memo")
+                .title(request.getTitle())
+                .url(request.getUrl())
+                .memo(request.getMemo())
                 .user(user)
                 .build();
 
-        final BookmarkUpdateRequest request = new BookmarkUpdateRequest("Updated Title", "https://updated.com", "Updated Memo", List.of("Updated Tag"));
-
-        // 수정할 북마크를 찾기 위한 Repository 동작을 모의(Mocking)합니다.
-        when(bookmarkRepository.findByIdWithTags(1L)).thenReturn(Optional.of(existingBookmark));
-        when(tagRepository.findByName("Updated Tag")).thenReturn(Optional.empty());
-        when(tagRepository.save(any(Tag.class))).thenReturn(Tag.builder().name("Updated Tag").build());
+        // BookmarkUpdater가 수정된 Bookmark 엔티티를 반환하도록 모의(Mocking)합니다.
+        when(bookmarkUpdater.updateBookmarkAndCache(anyLong(), eq(1L), eq(request))).thenReturn(updatedBookmark);
 
         // when
+        // 이 라인이 누락되면 UnnecessaryStubbingException이 발생합니다.
         final BookmarkResponse response = bookmarkService.updateBookmark(1L, request);
 
         // then
-        assertThat(existingBookmark.getTitle()).isEqualTo("Updated Title");
-        assertThat(existingBookmark.getUrl()).isEqualTo("https://updated.com");
-        assertThat(existingBookmark.getMemo()).isEqualTo("Updated Memo");
+        assertThat(response.getTitle()).isEqualTo("Updated Title");
+        assertThat(response.getUrl()).isEqualTo("https://updated.com");
 
-        verify(bookmarkRepository, times(1)).findByIdWithTags(1L);
-
-        assertThat(response.getTags()).containsExactly("Updated Tag");
+        // bookmarkUpdater.updateBookmarkAndCache가 정확한 인자로 1번 호출되었는지 검증
+        verify(bookmarkUpdater, times(1)).updateBookmarkAndCache(anyLong(), eq(1L), eq(request));
     }
 
     @DisplayName("북마크 삭제 - 성공")
     @Test
     void deleteBookmark_Success() {
-        // given
-        // deleteBookmark 내부에서 findBookmarkEntityById가 호출되므로, 해당 호출을 모의(Mocking)
-        Bookmark bookmarkToDelete = Bookmark.builder().id(1L).title("To Delete").url("...").user(user).build();
-        when(bookmarkRepository.findByIdWithTags(1L)).thenReturn(Optional.of(bookmarkToDelete));
-        // 실제 repository의 delete는 아무것도 하지 않도록 설정
-        doNothing().when(bookmarkRepository).delete(bookmarkToDelete);
+        // given (사전 조건 설정)
+        // 1. bookmarkUpdater.deleteBookmarkAndEvictCache가 호출될 때 반환할 가짜 Bookmark 객체를 준비합니다.
+        Bookmark fakeBookmark = Bookmark.builder().id(1L).user(user).build();
 
-        // when
-        bookmarkService.deleteBookmark(1L);
-        // then
-        verify(bookmarkRepository, times(1)).findByIdWithTags(1L);
-        verify(bookmarkRepository, times(1)).delete(bookmarkToDelete);
+        // 2. bookmarkUpdater가 호출되면 null 대신 위에서 만든 가짜 객체를 반환하도록 설정합니다.
+        //    이것이 없으면 bookmarkRepository.delete(null)이 호출되어 오류가 발생합니다.
+        when(bookmarkUpdater.deleteBookmarkAndEvictCache(userId, 1L)).thenReturn(fakeBookmark);
+
+        // when (테스트 대상 메서드 실행)
+        // 3. 실제 테스트 대상 메서드를 호출합니다.
+        bookmarkService.deleteBookmark(1L, userId);
+
+        // then (결과 검증)
+        // 4. BookmarkService가 의존하는 객체들의 메서드를 올바르게 호출했는지 검증합니다.
+        verify(bookmarkUpdater, times(1)).deleteBookmarkAndEvictCache(userId, 1L);
+        verify(bookmarkRepository, times(1)).delete(fakeBookmark);
     }
 
     @DisplayName("태그로 북마크 조회 - 성공")
@@ -282,12 +277,13 @@ class BookmarkServiceTest {
         ReflectionTestUtils.setField(anotherUser, "id", 2L); // 다른 사용자의 ID 설정
         Bookmark othersBookmark = Bookmark.builder().id(2L).title("Another's Bookmark").url("...").user(anotherUser).build();
         
-        // 다른 사용자의 북마크가 조회되도록 설정합니다.
-        when(bookmarkRepository.findByIdWithTags(2L)).thenReturn(Optional.of(othersBookmark));
+        // BookmarkFinder가 권한 없음 예외를 던지도록 설정합니다.
+        when(bookmarkFinder.findBookmarkById(2L, userId)).thenThrow(new UnauthorizedBookmarkAccessException(2L, userId));
 
         // when & then
         // 현재 로그인한 사용자(userId=1)가 다른 사용자(userId=2)의 북마크에 접근 시도
         assertThatThrownBy(() -> bookmarkService.getBookmarkById(2L))
                 .isInstanceOf(UnauthorizedBookmarkAccessException.class);
+        verify(bookmarkFinder, times(1)).findBookmarkById(2L, userId);
     }
 }
