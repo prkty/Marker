@@ -1,10 +1,10 @@
 package com.example.marker.controller;
 
 import java.net.URI;
-import java.util.List;
+
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,7 +21,6 @@ import com.example.marker.dto.BookmarkResponse;
 import com.example.marker.dto.BookmarkUpdateRequest;
 import com.example.marker.service.BookmarkService;
 
-import org.springdoc.core.annotations.ParameterObject;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -113,7 +112,8 @@ public class BookmarkController {
     })
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteBookmark(@PathVariable Long id) {
-        bookmarkService.deleteBookmark(id);
+        Long currentUserId = bookmarkService.getCurrentUserId();
+        bookmarkService.deleteBookmark(id, currentUserId);
         return ResponseEntity.noContent().build();
     }
 }

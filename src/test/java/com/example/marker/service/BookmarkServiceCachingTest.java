@@ -20,7 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collections;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -35,9 +38,12 @@ class BookmarkServiceCachingTest {
     private UserRepository userRepository;
 
     // @SpyBean: 실제 BookmarkRepository Bean을 사용하면서도,
-    // 특정 메소드의 호출 횟수 등을 추적할 수 있게 해줍니다.
-    @SpyBean
+    @Autowired
     private BookmarkRepository bookmarkRepository;
+    // @SpyBean: 실제 BookmarkRepository Bean을 사용하면서도,
+    // 특정 메소드의 호출 횟수 등을 추적할 수 있게 해줍니다.
+    @SpyBean // 실제 BookmarkFinder Bean을 감시하여 메서드 호출을 추적합니다.
+    private BookmarkFinder bookmarkFinder;
 
     @Autowired
     private CacheManager cacheManager;
@@ -82,7 +88,7 @@ class BookmarkServiceCachingTest {
 
         // then
         // findByIdWithTags 메소드가 총 1번만 호출되었는지 검증
-        verify(bookmarkRepository, times(1)).findByIdWithTags(bookmark.getId());
+        verify(bookmarkFinder, times(1)).findBookmarkById(bookmark.getId(), user.getId());
     }
 
     @DisplayName("@CachePut: 북마크 수정 시 캐시 갱신")
@@ -108,13 +114,17 @@ class BookmarkServiceCachingTest {
         );
         bookmarkService.updateBookmark(bookmark.getId(), updateRequest);
 
-        // 3. 수정 후 다시 조회 (갱신된 캐시에서 조회)
+        // 3. 수정 후 다시 조회하여 캐시가 갱신되었는지 확인
+        var updatedBookmark = bookmarkService.getBookmarkById(bookmark.getId());
+        assertThat(updatedBookmark.getTitle()).isEqualTo("Updated Title");
+
+        // 4. 캐시가 갱신되었으므로 이 호출은 DB를 조회하지 않아야 함
         bookmarkService.getBookmarkById(bookmark.getId());
 
         // then
-        // 첫 번째 조회(1) + 수정 시 내부 조회(1) = 총 2번
-        // 수정 후 다시 조회할 때는 캐시를 사용하므로 추가 호출이 없어야 함
-        verify(bookmarkRepository, times(2)).findByIdWithTags(bookmark.getId());
+        // 첫 번째 조회 시에만 DB 조회가 발생하고,
+        // 이후 수정 및 조회는 모두 캐시를 통해 이루어지므로 실제 메서드 호출은 1회여야 합니다.
+        verify(bookmarkFinder, times(1)).findBookmarkById(bookmark.getId(), user.getId());
     }
 
     @DisplayName("@CacheEvict: 북마크 삭제 시 캐시 제거")
@@ -132,7 +142,7 @@ class BookmarkServiceCachingTest {
 
         // when
         // 2. 북마크 삭제 (DB 삭제 및 캐시 제거)
-        bookmarkService.deleteBookmark(bookmark.getId());
+        bookmarkService.deleteBookmark(bookmark.getId(), user.getId());
 
         // 3. 삭제 후 다시 조회 시도 (캐시가 없으므로 DB 조회 시도)
         try {
@@ -144,7 +154,7 @@ class BookmarkServiceCachingTest {
         // then
         // 첫 번째 조회(1) + 삭제 시 내부 조회(1) = 총 2번
         // 삭제 후에는 데이터가 없으므로 조회를 시도하지 않음
-        verify(bookmarkRepository, times(2)).findByIdWithTags(bookmark.getId());
+        verify(bookmarkFinder, times(2)).findBookmarkById(bookmark.getId(), user.getId());
     }
 
     @DisplayName("동일한 북마크를 다른 사용자가 조회하면 권한 오류 발생")
@@ -185,6 +195,6 @@ class BookmarkServiceCachingTest {
                 .isInstanceOf(UnauthorizedBookmarkAccessException.class);
         
         // 각 사용자마다 DB 조회가 발생해야 함
-        verify(bookmarkRepository, times(2)).findByIdWithTags(bookmark.getId());
+        verify(bookmarkFinder, times(2)).findBookmarkById(eq(bookmark.getId()), anyLong());
     }
 }
